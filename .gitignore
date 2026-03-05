@@ -1,0 +1,27 @@
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Eclipse / IDE metadata at repo root
+.classpath
+.project
+.settings/
+.metadata/
+
+# IntelliJ
+.idea/
+*.iml
+
+# VS Code
+.vscode/
+
+# H2 database files
+**/*.mv.db
+**/*.trace.db
+**/data/
+
+# Maven build output anywhere in the repo
+**/target/
