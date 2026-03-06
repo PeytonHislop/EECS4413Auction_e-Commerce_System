@@ -1,6 +1,7 @@
 package com.code2cash.auction.controller;
 
 import com.code2cash.auction.dto.AuctionResponse;
+import com.code2cash.auction.model.AuctionStatus;
 import com.code2cash.auction.service.AuctionService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -37,7 +38,7 @@ public class AuctionControllerTest {
         AuctionResponse auction1 = new AuctionResponse();
         auction1.setAuctionId("AUC001");
         auction1.setItemId("ITEM001");
-        auction1.setStatus("ACTIVE");
+        auction1.setStatus(AuctionStatus.ACTIVE);
         
         List<AuctionResponse> auctions = Arrays.asList(auction1);
         when(auctionService.getActiveAuctions()).thenReturn(auctions);
