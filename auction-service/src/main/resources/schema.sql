@@ -40,13 +40,13 @@ CREATE INDEX IF NOT EXISTS idx_bid_bidder ON bids(bidder_id);
 CREATE INDEX IF NOT EXISTS idx_bid_timestamp ON bids(bid_timestamp);
 
 -- Insert sample data for testing
-INSERT INTO auctions (auction_id, item_id, seller_id, start_time, end_time, status, reserve_price, current_highest_bid, current_highest_bidder_id)
+INSERT OR IGNORE INTO auctions (auction_id, item_id, seller_id, start_time, end_time, status, reserve_price, current_highest_bid, current_highest_bidder_id)
 VALUES 
     ('AUC001', 'ITEM001', 'USER001', datetime('now'), datetime('now', '+2 days'), 'ACTIVE', 100.00, 50.00, NULL),
     ('AUC002', 'ITEM002', 'USER002', datetime('now'), datetime('now', '+1 day'), 'ACTIVE', 200.00, 150.00, 'USER003'),
     ('AUC003', 'ITEM003', 'USER001', datetime('now', '-3 days'), datetime('now', '-1 day'), 'CLOSED', 75.00, 120.00, 'USER004');
 
-INSERT INTO bids (bid_id, auction_id, bidder_id, bid_amount, bid_timestamp)
+INSERT OR IGNORE INTO bids (bid_id, auction_id, bidder_id, bid_amount, bid_timestamp)
 VALUES
     ('BID001', 'AUC001', 'USER003', 50.00, datetime('now', '-1 hour')),
     ('BID002', 'AUC002', 'USER003', 150.00, datetime('now', '-30 minutes')),
