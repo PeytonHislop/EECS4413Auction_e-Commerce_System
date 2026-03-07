@@ -1,0 +1,72 @@
+Sign up:
+curl -i -X POST "http://localhost:8080/api/auth/signup" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username":"demo_user_1",
+    "password":"P@ssword123",
+    "firstName":"Ravi",
+    "lastName":"Deol",
+    "email":"demo_user_1@example.com",
+    "role":"BUYER",
+    "shippingAddress":{
+      "streetNumber":"123",
+      "streetName":"Main St",
+      "city":"Brampton",
+      "country":"Canada",
+      "postalCode":"L6X1X1"
+    }
+  }'
+
+Login (save the JWT):
+curl -i -X POST "http://localhost:8080/api/auth/login" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username":"demo_user_1",
+    "password":"P@ssword123"
+  }'
+
+Copy the "token" from the response and set it:
+
+TOKEN="PASTE_TOKEN_HERE"
+
+3) Validate token
+curl -i -X POST "http://localhost:8080/api/auth/validate" \
+  -H "Authorization: Bearer $TOKEN"
+
+4) Authorize role
+curl -i -X GET "http://localhost:8080/api/auth/authorize?requiredRole=BUYER" \
+  -H "Authorization: Bearer $TOKEN"
+
+5) Forgot password (get reset token)
+curl -i -X POST "http://localhost:8080/api/auth/password/forgot" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username":"demo_user_1"
+  }'
+
+Copy the "resetToken" and set:
+
+RESET_TOKEN="PASTE_RESET_TOKEN_HERE"
+
+6) Reset password
+curl -i -X POST "http://localhost:8080/api/auth/password/reset" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"resetToken\":\"$RESET_TOKEN\",
+    \"newPassword\":\"NewP@ssword123\"
+  }"
+
+7) Login with new password
+curl -i -X POST "http://localhost:8080/api/auth/login" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username":"demo_user_1",
+    "password":"NewP@ssword123"
+  }'
+
+8) Get user profile by userId
+You need userId from signup/login response. Set it:
+USER_ID="PASTE_USER_ID_HERE"
+
+Then:
+curl -i -X GET "http://localhost:8080/api/users/$USER_ID"
