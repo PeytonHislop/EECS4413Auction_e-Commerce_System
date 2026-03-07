@@ -126,6 +126,52 @@ If using file mode, ignore `data/` and `*.mv.db` in `.gitignore`.
 
 ## Catalogue Service
 
+**Service folder:** `catalogue-service/`  
+**Purpose:** Item/auction listing management with search, filtering, and IAM integration.
+
+### Run Catalogue
+From `catalogue-service/`:
+```bash
+mvn spring-boot:run
+```
+Default: `http://localhost:8083`
+
+### Key endpoints
+Base: `http://localhost:8083`
+
+**Public (no authentication):**
+```
+GET /api/catalogue/items                   #get all active items
+GET /api/catalogue/items?keyword={term}    #search items
+GET /api/catalogue/items/{id}              #get item by ID
+```
+
+**Protected (requires JWT with SELLER role):**
+```
+POST /api/catalogue/items                  #create auction item
+```
+
+### Test cases implemented
+- **TC-CAT-01**: Search by keyword
+- **TC-CAT-02**: 48-hour duration calculation (`endDate = currentTime + durationHours`)
+- **TC-CAT-03**: Auto-filter expired items (`currentTime < endDate`)
+- **TC-CAT-04**: Validate positive prices (rejects negative/zero with 400 Bad Request)
+
+### Testing
+**Automated script:**
+```bash
+chmod +x test-catalogue-service.sh
+./test-catalogue-service.sh
+```
+
+**Java unit tests:**
+```bash
+mvn test    #comprehensive test suite included
+```
+
+### Gateway integration
+Gateway forwards `/api/items/*` to Catalogue Service via `CatalogueClient` and `CatalogueGatewayController`.
+
 ---
 
 ## Payment Service
