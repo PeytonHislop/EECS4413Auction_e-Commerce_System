@@ -3,7 +3,6 @@ package com.auction.payment.controller;
 import com.auction.payment.dto.PaymentRequest;
 import com.auction.payment.dto.ReceiptResponse;
 import com.auction.payment.exception.UnauthorizedRoleException;
-import com.auction.payment.exception.UserMismatchException;
 import com.auction.payment.model.Order;
 import com.auction.payment.model.Payment;
 import com.auction.payment.service.OrderService;
@@ -34,45 +33,30 @@ public class PaymentController {
     @PostMapping("/process")
     @ResponseStatus(HttpStatus.OK)
     public ReceiptResponse processPayment(
-            @RequestHeader("X-User-Id") String gatewayUserId,
+            @RequestHeader("X-User-Id") String winnerUserId,
             @RequestHeader("X-Role") String gatewayRole,
             @RequestHeader("X-Shipping-Address") String shippingAddress,
+            @RequestHeader("X-Shipping-Cost") double shippingCost,
+            @RequestHeader("X-Sold-Price") double soldPrice,
             @Valid @RequestBody PaymentRequest request
     ) {
-
-        validateGatewayIdentity(gatewayUserId, gatewayRole, request);
+        if (!"BUYER".equalsIgnoreCase(gatewayRole)) {
+            throw new UnauthorizedRoleException("User does not have BUYER role");
+        }
 
         Payment payment = paymentService.initiatePayment(
-                request.getUserId(),
+                winnerUserId,
                 request.getAuctionId(),
-                request.getAmount()
+                soldPrice
         );
 
-        Order order = orderService.createOrder(payment, 5.99, 3);
+        Order order = orderService.createOrder(payment, shippingCost, 3);
 
         ReceiptResponse receipt =
-                receiptService.generateReceipt(order, request.getAmount());
+                receiptService.generateReceipt(order, soldPrice);
 
         receipt.setShippingAddress(shippingAddress);
 
         return receipt;
-    }
-
-    private void validateGatewayIdentity(
-            String gatewayUserId,
-            String gatewayRole,
-            PaymentRequest request
-    ) {
-        if (!gatewayUserId.equals(request.getUserId())) {
-            throw new UserMismatchException(
-                    "User mismatch between gateway identity and request"
-            );
-        }
-
-        if (!"BUYER".equalsIgnoreCase(gatewayRole)) {
-            throw new UnauthorizedRoleException(
-                    "User does not have BUYER role"
-            );
-        }
     }
 }

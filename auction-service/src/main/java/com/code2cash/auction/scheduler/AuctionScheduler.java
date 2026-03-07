@@ -25,7 +25,7 @@ public class AuctionScheduler {
      * cron format: second minute hour day month weekday
      * fixedRate: Run every 60000 milliseconds (60 seconds)
      */
-    @Scheduled(fixedRate = 60000) // Every 60 seconds
+    @Scheduled(fixedRate = 6000000) // Every 60 seconds
     public void checkAndCloseExpiredAuctions() {
         String timestamp = LocalDateTime.now().format(formatter);
         System.out.println("[" + timestamp + "] Scheduler: Checking for expired auctions...");

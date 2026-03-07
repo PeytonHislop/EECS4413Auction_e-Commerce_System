@@ -26,8 +26,10 @@ public class PaymentClient {
             String username,
             String role,
             String shippingAddress,
-            String jsonBody) {
-
+            double shippingCost,
+            double soldPrice,
+            String jsonBody
+    ) {
         try {
             String responseBody = restClient.post()
                     .uri(baseUrl + path)
@@ -36,6 +38,8 @@ public class PaymentClient {
                     .header("X-Username", username)
                     .header("X-Role", role)
                     .header("X-Shipping-Address", shippingAddress)
+                    .header("X-Shipping-Cost", String.valueOf(shippingCost))
+                    .header("X-Sold-Price", String.valueOf(soldPrice))
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(jsonBody)
                     .retrieve()
