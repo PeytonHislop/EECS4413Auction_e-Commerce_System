@@ -425,12 +425,6 @@ Gateway forwards `/api/items/*` to Catalogue Service via `CatalogueClient` and `
 
 ## Deliverable 2 artifacts checklist
 
-
-
-Copy
-
-Copy
-
 - ✅ Back-end implementation
 
 - ✅ Curl scripts
