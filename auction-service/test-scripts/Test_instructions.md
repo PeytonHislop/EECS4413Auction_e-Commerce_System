@@ -1,4 +1,3 @@
-
 Demo Preparation - Auction Service
 Your Use Cases to Demonstrate:
 
@@ -21,8 +20,6 @@ Key points to mention:
 One one terminal:
 .\mvnw.cmd clean install
 .\mvnw.cmd spring-boot:run
-
-On a new terminal: 
 
 ------------------------------------------------------------------------------------------------------------------
 
