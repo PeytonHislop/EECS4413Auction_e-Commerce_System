@@ -64,16 +64,3 @@ public class BidControllerTest {
                 .andExpect(jsonPath("$.bidAmount").value(150.00));
     }
 }
-```
-
----
-
-## **Steps to Add Tests:**
-
-### **1. Create the folder structure in VS Code:**
-```
-src/test/java/com/code2cash/auction/
-├── AuctionServiceApplicationTests.java
-└── controller/
-    ├── AuctionControllerTest.java
-    └── BidControllerTest.java
