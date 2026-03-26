@@ -266,6 +266,9 @@ cd auction-service
 # Get active auctions (public)
 curl http://localhost:8082/api/auctions/active
 
+# Better visibility:
+(curl http://localhost:8082/api/auctions/active).Content | ConvertFrom-Json | ConvertTo-Json -Depth 10
+
 # Get auction details (public)
 curl http://localhost:8082/api/auctions/AUC001
 
