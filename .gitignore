@@ -5,7 +5,7 @@ Thumbs.db
 # Logs
 *.log
 
-# Eclipse / IDE metadata at repo root
+# Eclipse / IDE metadata
 .classpath
 .project
 .settings/
@@ -18,10 +18,19 @@ Thumbs.db
 # VS Code
 .vscode/
 
+# Node
+**/node_modules/
+**/dist/
+
+# Env files
+.env
+.env.*
+!.env.example
+
 # H2 database files
 **/*.mv.db
 **/*.trace.db
 **/data/
 
-# Maven build output anywhere in the repo
+# Maven build output
 **/target/
