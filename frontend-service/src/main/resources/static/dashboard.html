@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Code2Cash - Auction Platform</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .navbar {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1rem 2rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .navbar h1 {
+            font-size: 1.8rem;
+            font-weight: bold;
+        }
+
+        .navbar-buttons {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .btn {
+            padding: 0.6rem 1.2rem;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.95rem;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+
+        .btn-primary {
+            background: white;
+            color: #667eea;
+        }
+
+        .btn-primary:hover {
+            background: #f0f0f0;
+            transform: translateY(-2px);
+        }
+
+        .btn-danger {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c0392b;
+        }
+
+        .btn-secondary {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            border: 1px solid white;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255,255,255,0.3);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+
+        .page {
+            display: none;
+            background: white;
+            border-radius: 10px;
+            padding: 2rem;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .page.active {
+            display: block;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #333;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 0.8rem;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 0.95rem;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 5px rgba(102, 126, 234, 0.3);
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        h2 {
+            margin-bottom: 1.5rem;
+            color: #667eea;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 0.5rem;
+        }
+
+        .auction-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-top: 1rem;
+        }
+
+        .auction-card {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 1.5rem;
+            background: #f9f9f9;
+            transition: all 0.3s ease;
+        }
+
+        .auction-card:hover {
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            transform: translateY(-3px);
+        }
+
+        .auction-card h3 {
+            color: #667eea;
+            margin-bottom: 0.5rem;
+        }
+
+        .auction-card p {
+            margin: 0.5rem 0;
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .price {
+            font-weight: bold;
+            color: #27ae60;
+            font-size: 1.1rem;
+        }
+
+        .status {
+            display: inline-block;
+            padding: 0.3rem 0.8rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            margin-top: 0.5rem;
+        }
+
+        .status.active {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status.closed {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .leaderboard-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+
+        .leaderboard-table th,
+        .leaderboard-table td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .leaderboard-table th {
+            background: #667eea;
+            color: white;
+            font-weight: bold;
+        }
+
+        .leaderboard-table tr:hover {
+            background: #f5f5f5;
+        }
+
+        .alert {
+            padding: 1rem;
+            border-radius: 5px;
+            margin-bottom: 1rem;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .alert-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.4);
+        }
+
+        .modal.show {
+            display: block;
+        }
+
+        .modal-content {
+            background-color: white;
+            margin: 5% auto;
+            padding: 2rem;
+            border-radius: 10px;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .close {
+            font-size: 2rem;
+            cursor: pointer;
+            color: #999;
+        }
+
+        .close:hover {
+            color: #333;
+        }
+
+        .role-badge {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: bold;
+            margin-left: 1rem;
+        }
+
+        .role-badge.buyer {
+            background: #cfe9ff;
+            color: #004085;
+        }
+
+        .role-badge.seller {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .role-badge.admin {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-card h3 {
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+            opacity: 0.9;
+        }
+
+        .stat-card .value {
+            font-size: 2rem;
+            font-weight: bold;
+        }
+
+        .info-message {
+            background: #e7f3ff;
+            border-left: 4px solid #2196F3;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border-radius: 4px;
+            color: #1565c0;
+        }
+
+        @media (max-width: 768px) {
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+
+            .auction-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .navbar {
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            .navbar-buttons {
+                width: 100%;
+                justify-content: space-between;
+            }
+
+            .leaderboard-table {
+                font-size: 0.85rem;
+            }
+
+            .leaderboard-table th,
+            .leaderboard-table td {
+                padding: 0.6rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <div class="navbar">
+        <h1>💰 Code2Cash Auctions</h1>
+        <div class="navbar-buttons">
+            <button class="btn btn-secondary" id="navHome" onclick="showPage('home')">Home</button>
+            <button class="btn btn-secondary" id="navAuctions" onclick="showPage('auctions')" style="display:none;">Auctions</button>
+            <button class="btn btn-secondary" id="navMyBids" onclick="showPage('myBids')" style="display:none;">My Bids</button>
+            <button class="btn btn-secondary" id="navCreateAuction" onclick="showPage('createAuction')" style="display:none;">Create Auction</button>
+            <button class="btn btn-secondary" onclick="showPage('leaderboard')">Leaderboard</button>
+            <button class="btn btn-danger" id="logoutBtn" style="display:none;" onclick="logout()">Logout</button>
+            <button class="btn btn-primary" id="loginBtn" onclick="showLoginModal()">Login</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Home Page -->
+        <div id="home" class="page active">
+            <h2>Welcome to Code2Cash Auction Platform</h2>
+            <p style="margin-bottom: 1rem; color: #666;">A modern peer-to-peer auction marketplace built with microservices.</p>
+            
+            <div class="info-message">
+                <strong>👤 Not logged in</strong> - Please log in to participate in auctions and place bids.
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h3>Total Auctions</h3>
+                    <div class="value" id="totalAuctions">-</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Active Now</h3>
+                    <div class="value" id="activeAuctions">-</div>
+                </div>
+                <div class="stat-card">
+                    <h3>This Week's Bids</h3>
+                    <div class="value" id="weeklyBids">-</div>
+                </div>
+            </div>
+
+            <h3 style="margin-top: 2rem; color: #667eea;">Latest Auctions</h3>
+            <div id="homeAuctions" class="auction-grid"></div>
+        </div>
+
+        <!-- Auctions Page -->
+        <div id="auctions" class="page">
+            <h2>Browse Auctions</h2>
+            <div class="form-group">
+                <input type="text" id="searchKeyword" placeholder="Search auctions..." onkeyup="searchAuctions()">
+            </div>
+            <div id="auctionsList" class="auction-grid"></div>
+        </div>
+
+        <!-- My Bids Page -->
+        <div id="myBids" class="page">
+            <h2>My Bids</h2>
+            <div id="myBidsList"></div>
+        </div>
+
+        <!-- Create Auction Page -->
+        <div id="createAuction" class="page">
+            <h2>Create New Auction</h2>
+            <form onsubmit="submitCreateAuction(event)">
+                <div class="form-group">
+                    <label>Item Name</label>
+                    <input type="text" id="itemName" required>
+                </div>
+                <div class="form-group">
+                    <label>Item Description</label>
+                    <textarea id="itemDesc" required style="min-height: 100px; width: 100%; padding: 0.8rem;"></textarea>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Starting Price</label>
+                        <input type="number" id="startPrice" step="0.01" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Duration (hours)</label>
+                        <input type="number" id="duration" value="24" required>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary" style="background: #667eea; color: white; width: 100%;">Create Auction</button>
+            </form>
+        </div>
+
+        <!-- Leaderboard Page -->
+        <div id="leaderboard" class="page">
+            <h2>🏆 Weekly Leaderboard</h2>
+            <p style="color: #666; margin-bottom: 1rem;">Top 10 highest bids of the week</p>
+            
+            <div class="stats-grid" style="margin-bottom: 2rem;">
+                <div class="stat-card">
+                    <h3>Highest Bid</h3>
+                    <div class="value" id="highestBid">-</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Total Bids</h3>
+                    <div class="value" id="totalWeeklyBids">-</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Average Bid</h3>
+                    <div class="value" id="avgBid">-</div>
+                </div>
+            </div>
+
+            <table class="leaderboard-table" id="leaderboardTable">
+                <thead>
+                    <tr>
+                        <th>Rank</th>
+                        <th>Bidder</th>
+                        <th>Item</th>
+                        <th>Bid Amount</th>
+                        <th>When</th>
+                    </tr>
+                </thead>
+                <tbody id="leaderboardBody">
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Login Modal -->
+    <div id="loginModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 style="margin: 0;">Login / Register</h2>
+                <span class="close" onclick="closeLoginModal()">&times;</span>
+            </div>
+            
+            <div id="loginForm">
+                <div class="form-group">
+                    <label>Username</label>
+                    <input type="text" id="username" placeholder="Enter username">
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" id="password" placeholder="Enter password">
+                </div>
+                <div class="form-group">
+                    <label>Role</label>
+                    <select id="role">
+                        <option value="BUYER">Buyer</option>
+                        <option value="SELLER">Seller</option>
+                    </select>
+                </div>
+                <button class="btn btn-primary" style="width: 100%; background: #667eea; color: white; margin-bottom: 0.5rem;" onclick="login()">Login</button>
+                <button class="btn btn-secondary" style="width: 100%;" onclick="closeLoginModal()">Cancel</button>
+            </div>
+
+            <div id="loginMessage" style="margin-top: 1rem;"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8080';
+        const LEADERBOARD_API = 'http://localhost:8085';
+
+        let currentUser = null;
+        let currentToken = null;
+
+        // Page navigation
+        function showPage(pageName) {
+            document.querySelectorAll('.page').forEach(page => page.classList.remove('active'));
+            document.getElementById(pageName).classList.add('active');
+
+            if (pageName === 'leaderboard') {
+                loadLeaderboard();
+            } else if (pageName === 'home') {
+                loadHomeStats();
+                loadHomeAuctions();
+            } else if (pageName === 'auctions') {
+                loadAuctions();
+            } else if (pageName === 'myBids' && currentUser) {
+                loadMyBids();
+            }
+        }
+
+        // Login handling
+        function showLoginModal() {
+            document.getElementById('loginModal').classList.add('show');
+        }
+
+        function closeLoginModal() {
+            document.getElementById('loginModal').classList.remove('show');
+        }
+
+        function login() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const role = document.getElementById('role').value;
+
+            if (!username || !password) {
+                showMessage('loginMessage', 'Please enter username and password', 'error');
+                return;
+            }
+
+            // Simulate login (in real app, would call IAM service)
+            currentUser = { username, role, id: Math.random().toString(36).substr(2, 9) };
+            currentToken = 'Bearer mock-jwt-token-' + Math.random().toString(36).substr(2, 9);
+
+            closeLoginModal();
+            updateUIAfterLogin();
+            showPage('home');
+            showMessage('loginMessage', `Welcome, ${username}!`, 'success');
+        }
+
+        function logout() {
+            currentUser = null;
+            currentToken = null;
+            updateUIAfterLogout();
+            showPage('home');
+        }
+
+        function updateUIAfterLogin() {
+            document.getElementById('loginBtn').style.display = 'none';
+            document.getElementById('logoutBtn').style.display = 'block';
+            document.getElementById('navAuctions').style.display = 'block';
+            document.getElementById('navMyBids').style.display = 'block';
+
+            if (currentUser.role === 'SELLER') {
+                document.getElementById('navCreateAuction').style.display = 'block';
+            }
+
+            // Show user info
+            const roleClass = currentUser.role.toLowerCase();
+            document.querySelector('.navbar').innerHTML += 
+                `<span class="role-badge ${roleClass}">${currentUser.role}</span>`;
+        }
+
+        function updateUIAfterLogout() {
+            document.getElementById('loginBtn').style.display = 'block';
+            document.getElementById('logoutBtn').style.display = 'none';
+            document.getElementById('navAuctions').style.display = 'none';
+            document.getElementById('navMyBids').style.display = 'none';
+            document.getElementById('navCreateAuction').style.display = 'none';
+        }
+
+        // Leaderboard
+        function loadLeaderboard() {
+            fetch(`${LEADERBOARD_API}/api/leaderboard`)
+                .then(r => r.json())
+                .then(data => {
+                    const tbody = document.getElementById('leaderboardBody');
+                    tbody.innerHTML = '';
+
+                    if (data.entries && data.entries.length > 0) {
+                        data.entries.forEach(entry => {
+                            tbody.innerHTML += `
+                                <tr>
+                                    <td>${entry.rank}</td>
+                                    <td>${entry.bidderName}</td>
+                                    <td>${entry.itemId}</td>
+                                    <td class="price">$${entry.bidAmount.toFixed(2)}</td>
+                                    <td>${new Date(entry.bidTime).toLocaleDateString()}</td>
+                                </tr>
+                            `;
+                        });
+                    } else {
+                        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">No bids yet this week</td></tr>';
+                    }
+
+                    // Load stats
+                    fetch(`${LEADERBOARD_API}/api/leaderboard/stats`)
+                        .then(r => r.json())
+                        .then(stats => {
+                            document.getElementById('highestBid').textContent = '$' + (stats.highestBid || 0).toFixed(2);
+                            document.getElementById('totalWeeklyBids').textContent = stats.weeklyBidCount || 0;
+                            document.getElementById('avgBid').textContent = '$' + (stats.averageBid || 0).toFixed(2);
+                        })
+                        .catch(e => console.error('Stats error:', e));
+                })
+                .catch(e => console.error('Leaderboard error:', e));
+        }
+
+        // Auctions
+        function loadAuctions() {
+            fetch(`${API_BASE}/api/auctions/active`)
+                .then(r => r.json())
+                .then(auctions => {
+                    displayAuctions(auctions, 'auctionsList');
+                })
+                .catch(e => console.error('Error:', e));
+        }
+
+        function loadHomeAuctions() {
+            fetch(`${API_BASE}/api/auctions/active`)
+                .then(r => r.json())
+                .then(auctions => {
+                    displayAuctions(auctions.slice(0, 3), 'homeAuctions');
+                })
+                .catch(e => console.error('Error:', e));
+        }
+
+        function loadHomeStats() {
+            // In real app, would fetch actual stats
+            document.getElementById('totalAuctions').textContent = '145';
+            document.getElementById('activeAuctions').textContent = '32';
+            document.getElementById('weeklyBids').textContent = '287';
+        }
+
+        function displayAuctions(auctions, containerId) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = '';
+
+            if (!auctions || auctions.length === 0) {
+                container.innerHTML = '<p style="text-align: center; grid-column: 1/-1;">No auctions found</p>';
+                return;
+            }
+
+            auctions.forEach(auction => {
+                container.innerHTML += `
+                    <div class="auction-card">
+                        <h3>${auction.itemId || 'Auction ' + auction.auctionId}</h3>
+                        <p>${auction.description || 'No description'}</p>
+                        <p class="price">$${auction.currentBid || auction.startPrice}</p>
+                        <p>Starting: $${auction.startPrice}</p>
+                        <span class="status ${auction.status.toLowerCase()}">${auction.status}</span>
+                        ${currentUser ? `<button class="btn btn-primary" style="width: 100%; margin-top: 0.5rem;" onclick="showBidModal('${auction.auctionId}')">Place Bid</button>` : ''}
+                    </div>
+                `;
+            });
+        }
+
+        function searchAuctions() {
+            const keyword = document.getElementById('searchKeyword').value;
+            // In real app, would search via API
+            loadAuctions();
+        }
+
+        function showBidModal(auctionId) {
+            const bidAmount = prompt('Enter bid amount:');
+            if (bidAmount) {
+                placeBid(auctionId, bidAmount);
+            }
+        }
+
+        function placeBid(auctionId, amount) {
+            if (!currentToken) {
+                showMessage('home', 'Please login first', 'error');
+                return;
+            }
+
+            // In real app, would make actual API call
+            showMessage('home', `Bid of $${amount} placed on auction ${auctionId}!`, 'success');
+        }
+
+        function loadMyBids() {
+            const container = document.getElementById('myBidsList');
+            if (!currentUser) {
+                container.innerHTML = '<p>Please login to view your bids</p>';
+                return;
+            }
+
+            // In real app, would fetch from API
+            container.innerHTML = `
+                <p>You haven't placed any bids yet. <a href="#" onclick="showPage('auctions')">Browse auctions</a></p>
+            `;
+        }
+
+        function submitCreateAuction(e) {
+            e.preventDefault();
+            if (!currentToken) {
+                alert('Please login first');
+                return;
+            }
+
+            const itemName = document.getElementById('itemName').value;
+            const startPrice = document.getElementById('startPrice').value;
+
+            // In real app, would make actual API call
+            showMessage('createAuction', `Auction created for ${itemName}!`, 'success');
+            e.target.reset();
+        }
+
+        // Utility
+        function showMessage(pageId, message, type) {
+            const page = document.getElementById(pageId);
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type}`;
+            alert.textContent = message;
+            page.insertBefore(alert, page.firstChild);
+            setTimeout(() => alert.remove(), 5000);
+        }
+
+        // Initialize
+        window.onload = () => {
+            showPage('home');
+            updateUIAfterLogout();
+        };
+    </script>
+</body>
+</html>
