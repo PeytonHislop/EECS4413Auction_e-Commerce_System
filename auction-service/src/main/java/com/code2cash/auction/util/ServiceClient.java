@@ -184,12 +184,19 @@ public class ServiceClient {
      */
     public boolean verifyItemExists(String itemId) {
         try {
-            // TODO: Implement actual call to Anton's Catalogue service
-            // For now, return true for testing
-            System.out.println("MOCK: Verifying item exists: " + itemId);
+            // Call Catalogue service to verify item exists
+            // GET /api/catalogue/items/{id} - returns 404 if not found
+            webClient.get()
+                .uri(catalogueServiceUrl + "/api/catalogue/items/" + itemId)
+                .retrieve()
+                .bodyToMono(Map.class)
+                .block();
+            
+            System.out.println("Item verified: " + itemId);
             return true;
             
         } catch (WebClientResponseException.NotFound e) {
+            System.out.println("Item not found: " + itemId);
             return false;
         } catch (Exception e) {
             System.err.println("Error verifying item: " + e.getMessage());
@@ -199,20 +206,25 @@ public class ServiceClient {
     
     /**
      * Initiate payment for auction winner
+     * Note: Payment is actually processed through the gateway when the winner
+     * explicitly calls POST /api/payments/process. This method is kept for
+     * potential future notification or logging purposes.
      * 
      * @param auctionId The auction ID
      * @param winnerId The winner's user ID
      * @param amount The payment amount
-     * @return true if payment initiated successfully
+     * @return true if payment notification sent successfully
      */
     public boolean initiatePayment(String auctionId, String winnerId, double amount) {
         try {
-            // TODO: Implement actual call to Peyton's Payment service
-            System.out.println("MOCK: Initiating payment for auction " + auctionId);
+            // Payment is processed through gateway by the winner
+            // This is just a placeholder for potential future notification system
+            System.out.println("Auction closed - Payment pending for auction " + auctionId + 
+                             " (Winner: " + winnerId + ", Amount: $" + amount + ")");
             return true;
             
         } catch (Exception e) {
-            System.err.println("Error initiating payment: " + e.getMessage());
+            System.err.println("Error logging payment notification: " + e.getMessage());
             return false;
         }
     }

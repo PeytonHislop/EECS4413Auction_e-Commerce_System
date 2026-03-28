@@ -1,9 +1,16 @@
 package com.yorku.eecs4413.platform.gateway_service.controller;
 
-import com.yorku.eecs4413.platform.gateway_service.client.CatalogueClient;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.yorku.eecs4413.platform.gateway_service.client.CatalogueClient;
 
 @RestController
 @RequestMapping("/api/items")
@@ -20,16 +27,16 @@ public class CatalogueGatewayController {
             @RequestHeader(HttpHeaders.AUTHORIZATION) String auth,
             @RequestBody String body
     ) {
-        return catalogue.postItemWithAuth("/items", auth, body);
+        return catalogue.postItemWithAuth("/api/catalogue/items", auth, body);
     }
 
     @GetMapping
     public ResponseEntity<String> getAllItems() {
-        return catalogue.get("/items");
+        return catalogue.get("/api/catalogue/items");
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<String> getItemById(@PathVariable Long id) {
-        return catalogue.get("/items/" + id);
+        return catalogue.get("/api/catalogue/items/" + id);
     }
 }
