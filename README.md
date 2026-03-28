@@ -1,103 +1,522 @@
-# EECS 4413 Auction e-Commerce System — Team 9: Code2Cash (Deliverable 2)
+# ReadME Draft (Look through and edit/fix)
 
-This repository contains the back-end services for the auction platform. For Deliverable 2, the system focuses on **back-end business logic services** and their REST interfaces, plus scripts/tests to demonstrate the main flows.
+# EECS 4413 Auction e-Commerce System — Team 9: Code2Cash (Deliverable 3)
 
-> **Ports**
-- Gateway: `8080`
+This repository contains the **complete microservices-based auction platform** with back-end services, front-end UI, comprehensive testing, and a new leaderboard feature.
+
+> **Updated Ports (Deliverable 3)**
+- Frontend: `8086` NEW
+- Gateway: `8080`  
 - IAM: `8081`
 - Auction: `8082`
 - Catalogue: `8083`
 - Payment: `8084`
+- Leaderboard: `8085` NEW
 
 ---
 
-## Repository structure
+## Deliverable 3 - What's New
+
+### New Features
+1. **Front-end Dashboard** (Port 8086)
+   - Complete UI for browsing auctions, placing bids, viewing leaderboard
+   - Role-based navigation (Buyer/Seller/Admin)
+   - Responsive design with modern styling
+
+2. **Leaderboard Service** (Port 8085)
+   - Tracks highest bids weekly
+   - Auto-reset every Monday
+   - REST API for leaderboard queries
+   - Weekly statistics and bidder rankings
+
+3. **Enhanced Test Coverage**
+   - 66+ test cases across auction service
+   - Unit tests (controllers, services)
+   - Integration tests (repositories)
+   - Comprehensive curl/bash test scripts
+
+4. **UC7 Authentication Fix**
+   - Fixed catalogue service to call IAM service directly (not gateway)
+   - Proper inter-service communication
+   - Secure authentication for all services
+
+### Repository Structure (Updated)
 
 ```text
 EECS4413Auction_e-Commerce_System/
 ├── README.md
+├── CURL_QUICK_REFERENCE.md      (Quick curl commands)
+├── TEST_INSTRUCTIONS_COMPREHENSIVE.md  (Full test guide)
 ├── iam-service/
 ├── gateway-service/
-├── auction-service/
-├── catalogue-service/
+├── auction-service/              (Enhanced with 66+ tests)
+├── catalogue-service/            (UC7 fix verified)
 ├── payment-service/
+├── leaderboard-service/          NEW
+├── frontend-service/             NEW
 └── scripts/
+    ├── comprehensive-tests.sh    (Full test suite)
+    └── (other test scripts)
 ```
 
 ---
 
 ## Quick Start - Run All Services
 
-### 1) Run Gateway
-From `gateway-service/`:
+### Option 1: Run All Services Sequentially (Recommended for Testing)
 
 ```bash
+# Terminal 1: Gateway (port 8080)
+cd gateway-service
+mvn spring-boot:run
+
+# Terminal 2: IAM (port 8081)
+cd iam-service
+./mvnw spring-boot:run    # or mvn spring-boot:run
+
+# Terminal 3: Auction (port 8082)
+cd auction-service
+./mvnw.cmd spring-boot:run  # Windows
+./mvnw spring-boot:run      # Mac/Linux
+
+# Terminal 4: Catalogue (port 8083)
+cd catalogue-service
+mvn spring-boot:run
+
+# Terminal 5: Leaderboard (port 8085) NEW
+cd leaderboard-service
+mvn spring-boot:run
+
+# Terminal 6: Frontend (port 8086) NEW
+cd frontend-service
+mvn spring-boot:run
+
+# Terminal 7: Payment (port 8084) - Optional
+cd payment-service
 mvn spring-boot:run
 ```
 
-Default: `http://localhost:8080`
-
-Gateway forwards to downstream services using:
-
-```properties
-downstream.iam.base-url=http://localhost:8081
-downstream.auction.base-url=http://localhost:8082
-downstream.catalogue.base-url=http://localhost:8083
-downstream.payment.base-url=http://localhost:8084
-```
-
-### 2) Run IAM
-From `iam-service/`:
-
+### Option 2: Run Specific Service
 ```bash
-mvn spring-boot:run
+# Example: Run only auction service
+cd auction-service
+./mvnw.cmd spring-boot:run          # Windows
+./mvnw spring-boot:run              # Mac/Linux
+mvn spring-boot:run                 # Direct Maven
 ```
 
-Default: `http://localhost:8081`
-
-### 3) Run Auction Service
-From `auction-service/`:
-
+### Verify Services Running
 ```bash
-# Windows
-.\mvnw.cmd spring-boot:run
-
-# Mac/Linux
-./mvnw spring-boot:run
+# Check all ports are listening
+lsof -i :8080-8086              # Mac/Linux
+netstat -ano | findstr :8080    # Windows
 ```
-
-Default: `http://localhost:8082`
-
-### 4) Run Catalogue
-From `catalogue-service/`:
-
-```bash
-mvn spring-boot:run
-```
-
-Default: `http://localhost:8083`
-
-### 5) Run Payment
-From `payment-service/`:
-
-```bash
-mvn spring-boot:run
-```
-
-Default: `http://localhost:8084`
 
 ---
 
-## IAM Service
+## Service Descriptions
 
-**Service folder:** `iam-service/`  
-**Purpose:** user identity management, authentication, authorization, and user profile retrieval for downstream services (e.g., Payment, Auction).
+### 1. Frontend Service (Port 8086) NEW
 
-### Supported use cases (UC-IAM)
-- **UC-IAM-01 Sign-Up**
-- **UC-IAM-02 Sign-In**
-- **UC-IAM-03 Forgot Password / Reset Password**
-- **UC-IAM-04 Validate Session/Token**
+**Purpose:** Web UI for browsing auctions, placing bids, viewing leaderboard
+
+**Access:** http://localhost:8086
+
+**Features:**
+- Login/Register with role selection (Buyer/Seller/Admin)
+- Browse active auctions
+- Place bids on items
+- View weekly leaderboard (top 10 bids)
+- Role-based navigation
+- Real-time statistics
+
+**How to use:**
+1. Open http://localhost:8086 in browser
+2. Click "Login" to create account
+3. Select your role (Buyer or Seller)
+4. Navigate to Auctions or Leaderboard
+
+---
+
+### 2. Leaderboard Service (Port 8085) NEW
+
+**Purpose:** Weekly bid leaderboard tracking highest bids
+
+**REST Endpoints:**
+- `GET /api/leaderboard` - Weekly top 10 bids
+- `GET /api/leaderboard/stats` - Weekly statistics
+- `GET /api/leaderboard/bidder/{bidderId}` - Bidder's weekly stats
+- `GET /api/leaderboard/week/{year}/{week}` - Historical leaderboard
+
+**Database:** H2 in-memory (auto-reset weekly)
+
+**Features:**
+- Automatic weekly reset (Mondays at midnight)
+- Real-time bid tracking
+- Bidder rankings and statistics
+- Historical data (4 weeks retention)
+
+**Test:**
+```bash
+curl http://localhost:8085/api/leaderboard | jq '.'
+```
+
+---
+
+### 3. Auction Service (Enhanced)
+
+**Testing:** 66+ new test cases added
+- 13 controller tests
+- 9 bid controller tests
+- 10 service-level tests
+- 10 bid service tests
+- 11 repository integration tests
+- 13 bid repository integration tests
+
+**Run tests:**
+```bash
+cd auction-service
+./mvnw.cmd test        # Windows
+./mvnw test            # Mac/Linux
+mvn test               # Direct Maven
+```
+
+---
+
+### 4. Catalogue Service (UC7 Fixed) ✅
+
+**What was fixed:**
+- **Issue:** Catalogue service was calling IAM service via gateway (port 8080) instead of directly (port 8081)
+- **Solution:** Updated `application.properties` to point to `http://localhost:8081`
+- **Impact:** UC7 (Upload Item) authentication now works correctly
+
+**File changed:**
+```properties
+# Before:
+iam.service.url=http://localhost:8080  ❌
+
+# After:
+iam.service.url=http://localhost:8081  ✅
+```
+
+---
+
+## Testing Guide
+
+### 1. Run All Tests Automatically
+```bash
+cd scripts/
+chmod +x comprehensive-tests.sh
+./comprehensive-tests.sh
+```
+
+This script tests:
+- IAM authentication and token validation
+- Catalogue service (UC7 item creation)
+- Auction creation and bidding
+- Leaderboard queries
+- Error handling & edge cases
+
+### 2. Quick Manual Tests (cURL)
+
+**Test UC7 (Upload Item):**
+```bash
+# 1. Login as seller
+TOKEN=$(curl -s -X POST http://localhost:8081/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"seller1","password":"password123"}' | jq -r '.token')
+
+# 2. Create item (UC7 fix)
+curl -X POST http://localhost:8083/api/catalogue/items \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Vintage Watch","description":"Rolex","startPrice":500,"shippingPrice":20,"durationHours":48}'
+```
+
+**Test Leaderboard:**
+```bash
+curl http://localhost:8085/api/leaderboard | jq '.entries[] | {rank, bidderName, bidAmount}'
+```
+
+Complete curl reference: See `CURL_QUICK_REFERENCE.md`
+
+### 3. Full Test Instructions
+See `TEST_INSTRUCTIONS_COMPREHENSIVE.md` for:
+- Complete test scenarios
+- Postman collection setup
+- Performance testing
+- Troubleshooting guide
+
+---
+
+## Architecture - Microservices Overview
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                   Frontend Service (8086) NEW            │
+│              Single-page dashboard application              │
+└────────────────────────┬────────────────────────────────────┘
+                         │
+┌────────────────────────▼────────────────────────────────────┐
+│               API Gateway Service (8080)                    │
+│             Request forwarding & routing                    │
+└──┬───────────────────┬──────────────┬────────────┬──────────┘
+   │                   │              │            │
+   ▼                   ▼              ▼            ▼
+┌─────────┐    ┌──────────────┐  ┌────────┐  ┌─────────────┐
+│   IAM   │    │  Catalogue   │  │Auction │  │  Payment    │
+│ (8081)  │    │   (8083)     │  │(8082)  │  │  (8084)     │
+└─────────┘    │              │  │        │  └─────────────┘
+               │  ✅ UC7 FIX  │  │        │
+               └──────────────┘  └────────┘
+                                      │
+                                      ▼
+                                ┌──────────────┐
+                                │ Leaderboard  │
+                                │    (8085)    │
+                                │     NEW      │
+                                └──────────────┘
+
+Database:
+- H2 in-memory (development)
+- SQLite (auction service)
+```
+
+---
+
+## Key Improvements for Deliverable 3
+
+| Aspect | Deliverable 2 | Deliverable 3 |
+|--------|---------------|---------------|
+| **Services** | 5 | 7 (+ Frontend, Leaderboard) |
+| **Test Coverage** | 2 tests | 66+ tests |
+| **User Interface** | ❌ None | ✅ Web dashboard |
+| **Featured Feature** | ❌ None | ✅ Leaderboard |
+| **UC7 Status** | ⚠️ Failing | ✅ Fixed |
+| **Documentation** | Minimal | Comprehensive |
+| **cURL Examples** | Few | 20+ examples |
+| **Test Scripts** | Basic | Comprehensive suite |
+
+---
+
+## Test Coverage Summary
+
+### Auction Service (66 tests)
+- **Controllers:** 22 tests (create, get, search, close)
+- **Services:** 20 tests (business logic)
+- **Repositories:** 24 tests (data access)
+
+### Leaderboard Service (9 tests)
+- **Controller tests:** 4 tests
+- **Service tests:** 5 tests
+
+### Total: 75+ test cases across all services
+
+---
+
+## Known Limitations & Future Work
+
+1. **HATEOAS** - Not yet implemented (add hyperlinks to responses)
+2. **Payment Integration** - Service exists but not fully integrated
+3. **Rate Limiting** - No request throttling implemented
+4. **Logging** - Basic logging; could use centralized logging (ELK)
+5. **Caching** - No caching layer (Redis could improve performance)
+6. **Database** - H2 in-memory; production should use PostgreSQL
+
+---
+
+## Troubleshooting
+
+### Services won't start
+```bash
+# Check if ports are in use
+lsof -i :8080                    # Mac/Linux
+netstat -ano | findstr :8080    # Windows
+
+# Kill process using port
+kill -9 <PID>              # Mac/Linux
+taskkill /PID <PID> /F    # Windows
+```
+
+### UC7 (Upload Item) returning 401
+- ✅ Fixed in Deliverable 3
+- Verify catalogue service points to `iam.service.url=http://localhost:8081`
+- Check JwtUtil secret matches between IAM and consuming services
+
+### Leaderboard showing no entries
+- Make sure auction service is running
+- Place some bids first
+- Leaderboard tracks weekly (Monday-Sunday)
+
+### Frontend not loading
+- Ensure frontend service running on port 8086
+- Clear browser cache: Ctrl+Shift+Delete
+- Check browser console for CORS errors
+
+---
+
+## Detailed Service Endpoints
+
+### Leaderboard Service (Port 8085)
+```
+GET /api/leaderboard              # Weekly top 10 bids
+GET /api/leaderboard/stats        # Aggregated weekly stats
+GET /api/leaderboard/bidder/{id}  # Bidder's weekly statistics
+GET /api/leaderboard/week/{y}/{w} # Historical leaderboard
+```
+
+### Auction Service (Port 8082)
+```
+GET  /api/auctions/active                   # Browse auctions
+POST /api/auctions                          # Create (SELLER)
+GET  /api/auctions/{id}                     # Get details
+POST /api/auctions/{id}/bids                # Place bid (BUYER)
+GET  /api/auctions/{id}/bids                # Bid history
+PUT  /api/auctions/{id}/close               # Close (ADMIN)
+```
+
+### Catalogue Service (Port 8083)
+```
+GET  /api/catalogue/items               # Browse items
+POST /api/catalogue/items               # Upload item (UC7 - SELLER)
+GET  /api/catalogue/items/{id}          # Get item details
+GET  /api/catalogue/sellers/{sid}/items # Seller's items
+```
+
+### IAM Service (Port 8081)
+```
+POST /auth/signup                              # Register
+POST /auth/login                               # Browser login
+POST /auth/validate                            # Validate token
+POST /auth/authorize?requiredRole=BUYER|SELLER # Check role
+GET  /users/{userId}                           # Get profile
+```
+
+### Gateway (Port 8080)
+```
+All endpoints above are accessible through:
+http://localhost:8080/api/*
+```
+
+### Frontend (Port 8086)
+```
+GET http://localhost:8086           # Load dashboard
+```
+
+---
+
+## How to Demo for Class Presentation
+
+**Step 1: Start All Services (7 terminals)**
+```bash
+# Terminal 1
+cd gateway-service && mvn spring-boot:run
+
+# Terminal 2
+cd iam-service && ./mvnw spring-boot:run
+
+# Terminal 3
+cd auction-service && ./mvnw.cmd spring-boot:run  # Windows
+
+# Terminal 4
+cd catalogue-service && mvn spring-boot:run
+
+# Terminal 5
+cd leaderboard-service && mvn spring-boot:run
+
+# Terminal 6
+cd frontend-service && mvn spring-boot:run
+
+# Terminal 7 (optional - for running tests)
+cd scripts
+```
+
+**Step 2: Open Frontend Dashboard**
+- Navigate to http://localhost:8086 in browser
+- Click "Login" button
+- Create account or use demo credentials
+
+**Step 3: Test UC7 (Upload Item) - THE FIX**
+- Log in as Seller
+- Navigate to "Upload Item" section
+- Fill form and submit
+- ✅ Should work (was broken before fix)
+
+**Step 4: Create Auction & Place Bids**
+- Switch to Buyer role
+- Browse auctions
+- Place some bids
+- Check winner logic
+
+**Step 5: View Leaderboard**
+- Navigate to Leaderboard tab
+- Show top 10 bids
+- Show bidder statistics
+- *This is the new feature for Deliverable 3*
+
+**Step 6: Run Automated Tests**
+```bash
+cd scripts
+./comprehensive-tests.sh
+```
+Shows: 40+ test cases all PASSING with proper status codes
+
+---
+
+## What Changed Between D2 → D3
+
+### Services Added
+- ✅ **Frontend Service** (Port 8086) - Complete UI dashboard
+- ✅ **Leaderboard Service** (Port 8085) - Weekly bid tracker
+
+### Features Added
+- ✅ Web-based UI with 5 main pages
+- ✅ Weekly leaderboard tracking  
+- ✅ Auto-reset leaderboard (Mondays)
+- ✅ Role-based UI navigation
+- ✅ 66+ new test cases for auction service
+- ✅ Comprehensive curl test suite
+
+### Bugs Fixed
+- ✅ **UC7 Authentication** - Catalogue service now calls IAM directly (not via gateway)
+- ✅ **Test Coverage** - Increased from 2 → 66+ tests
+
+### Documentation Added
+- ✅ `CURL_QUICK_REFERENCE.md` - 20+ curl examples with explanations
+- ✅ `TEST_INSTRUCTIONS_COMPREHENSIVE.md` - Complete testing guide
+- ✅ Updated `README.md` with Deliverable 3 details
+
+---
+
+## About UC7 Fix
+
+**The Problem:**
+Catalogue service was configured with `iam.service.url=http://localhost:8080` (Gateway), but it should call IAM directly at port 8081.
+
+**Why It Mattered:**
+- When user tried to upload an item (UC7), catalogue service validated the token
+- It was calling the gateway instead of IAM service
+- Gateway didn't know how to validate tokens (IAM's job)
+- Result: 401 Unauthorized error even with valid token
+
+**The Solution:**
+Changed one line in `catalogue-service/src/main/resources/application.properties`:
+```properties
+# BEFORE (broken)
+iam.service.url=http://localhost:8080
+
+# AFTER (fixed)
+iam.service.url=http://localhost:8081
+```
+
+**Verification:**
+- UC7 endpoint now returns 200+ on valid requests
+- Token validation works correctly
+- Seller role authorization confirmed
+
+---
+
+## Development Notes
 - **UC-IAM-05 Authorize Role-Based Actions**
 - **UC-IAM-06 Provide User Profile For Payment**
 
@@ -431,6 +850,14 @@ Gateway forwards `/api/items/*` to Catalogue Service via `CatalogueClient` and `
 - ✅ Back-end implementation
 
 - ✅ Curl scripts
+
+---
+
+## Remaining Tasks
+
+- HATEOAS Implementation, from feedback: "HATEOAS is NOT implemented — no hyperlinks in any REST response."
+
+- More test coverage, especially in Payment, from feedback: "Test coverage is uneven across services — Catalogue is thoroughly tested while Payment testing is minimal."
 
 - ✅ Test cases
 
