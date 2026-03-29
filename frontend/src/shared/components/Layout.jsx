@@ -35,6 +35,10 @@ const sections = [
   {
     title: "Payment",
     links: [{ to: "/payments/checkout", label: "Checkout" }]
+  },
+  {
+    title: "Leaderboard",
+    links: [{ to: "/leaderboard", label: "Leaderboard" }]
   }
 ];
 
