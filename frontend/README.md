@@ -43,8 +43,9 @@ npm run dev
 2. `auction-service` on `8082`
 3. `catalogue-service` on `8083`
 4. `payment-service` on `8084`
-5. `gateway-service` on `8080`
-6. React frontend on `5173`
+5. `leaderboard-service` on `8085`
+6. `gateway-service` on `8080`
+7. React frontend on `5173`
 
 ## Important integration notes
 
