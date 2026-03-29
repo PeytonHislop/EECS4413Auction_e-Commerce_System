@@ -22,6 +22,7 @@ import BidderBidsPage from "./modules/auction/pages/BidderBidsPage";
 import AdminAuctionsPage from "./modules/auction/pages/AdminAuctionsPage";
 
 import CheckoutPage from "./modules/payment/pages/CheckoutPage";
+import LeaderboardPage from "./modules/leaderboard/pages/LeaderboardPage";
 
 export default function App() {
   return (
@@ -103,6 +104,8 @@ export default function App() {
               </ProtectedRoute>
             }
           />
+
+          <Route path="/leaderboard" element={<LeaderboardPage />} />
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
