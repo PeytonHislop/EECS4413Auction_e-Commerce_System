@@ -7,7 +7,8 @@ public record DownstreamProperties(
         Service iam,
         Service auction,
         Service catalogue,
-        Service payment
+        Service payment,
+        Service leaderboard
 ) {
     public record Service(String baseUrl) {}
 }
