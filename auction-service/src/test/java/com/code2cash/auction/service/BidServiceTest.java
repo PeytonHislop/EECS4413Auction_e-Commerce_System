@@ -1,251 +1,210 @@
 package com.code2cash.auction.service;
 
+import com.code2cash.auction.dao.AuctionDAO;
+import com.code2cash.auction.dao.BidDAO;
 import com.code2cash.auction.dto.BidResponse;
-import com.code2cash.auction.model.Bid;
+import com.code2cash.auction.dto.PlaceBidRequest;
+import com.code2cash.auction.exception.AuctionClosedException;
+import com.code2cash.auction.exception.AuctionNotFoundException;
+import com.code2cash.auction.exception.InvalidBidException;
+import com.code2cash.auction.model.Auction;
 import com.code2cash.auction.model.AuctionStatus;
+import com.code2cash.auction.model.Bid;
+import com.code2cash.auction.util.ServiceClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.Arrays;
-import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
-/**
- * Unit tests for BidService business logic
- * Tests bid placement, validation, and history retrieval
- */
 @ExtendWith(MockitoExtension.class)
 class BidServiceTest {
 
     @Mock
-    private BidService bidService;
+    private BidDAO bidDAO;
 
-    private Bid mockBid;
-    private BidResponse mockBidResponse;
+    @Mock
+    private AuctionDAO auctionDAO;
+
+    @Mock
+    private ServiceClient serviceClient;
+
+    @Mock
+    private SimpMessagingTemplate messagingTemplate;
+
+    @InjectMocks
+    private BidServiceImpl bidService;
+
+    private ServiceClient.ValidationResponse validValidation;
 
     @BeforeEach
     void setUp() {
-        mockBid = new Bid();
-        mockBid.setBidId("BID001");
-        mockBid.setAuctionId("AUC001");
-        mockBid.setBidAmount(BigDecimal.valueOf(150.0));
-        mockBid.setBidderId("BUYER001");
-        mockBid.setCreatedAt(LocalDateTime.now());
-        
-        mockBidResponse = new BidResponse();
-        mockBidResponse.setBidId("BID001");
-        mockBidResponse.setAuctionId("AUC001");
-        mockBidResponse.setBidAmount(150.0);
-        mockBidResponse.setBidderId("BUYER001");
-        mockBidResponse.setSuccessful(true);
+        validValidation = new ServiceClient.ValidationResponse();
+        validValidation.setValid(true);
+        validValidation.setUserId("BUYER_777");
+        validValidation.setRole("BUYER");
     }
 
     @Test
-    @DisplayName("placeBid - Successfully places valid bid")
-    void testPlaceBid_WithValidBid_ReturnsSuccessfulResponse() {
-        // Arrange
-        when(bidService.placeBid("AUC001", 150.0, "token"))
-                .thenReturn(mockBidResponse);
+    @DisplayName("placeBid - invalid token -> RuntimeException")
+    void testPlaceBid_InvalidToken_Throws() {
+        String token = "bad-token";
+        ServiceClient.ValidationResponse invalid = new ServiceClient.ValidationResponse();
+        invalid.setValid(false);
 
-        // Act
-        BidResponse result = bidService.placeBid("AUC001", 150.0, "token");
+        when(serviceClient.validateToken(token)).thenReturn(invalid);
 
-        // Assert
-        assertNotNull(result);
-        assertTrue(result.isSuccessful());
-        assertEquals("BID001", result.getBidId());
-        assertEquals(150.0, result.getBidAmount());
-        verify(bidService).placeBid("AUC001", 150.0, "token");
+        PlaceBidRequest request = new PlaceBidRequest();
+        request.setBidderId("BUYER_1");
+        request.setBidAmount(BigDecimal.valueOf(150.00));
+
+        assertThrows(RuntimeException.class, () -> bidService.placeBid("AUC_1", request, token));
     }
 
     @Test
-    @DisplayName("placeBid - Validates bid is higher than current")
-    void testPlaceBid_LowerThanCurrent_ReturnsFailed() {
-        // Arrange
-        BidResponse failedBid = new BidResponse();
-        failedBid.setSuccessful(false);
-        failedBid.setMessage("Bid must be higher than current bid of 100.0");
-        
-        when(bidService.placeBid("AUC001", 50.0, "token"))
-                .thenReturn(failedBid);
+    @DisplayName("placeBid - auction missing -> AuctionNotFoundException")
+    void testPlaceBid_AuctionNotFound_Throws() {
+        String token = "token";
+        when(serviceClient.validateToken(token)).thenReturn(validValidation);
+        when(serviceClient.authorizeRole(token, "BUYER")).thenReturn(true);
+        when(auctionDAO.findById("AUC_MISSING")).thenReturn(Optional.empty());
 
-        // Act
-        BidResponse result = bidService.placeBid("AUC001", 50.0, "token");
+        PlaceBidRequest request = new PlaceBidRequest();
+        request.setBidderId("BUYER_1");
+        request.setBidAmount(BigDecimal.valueOf(150.00));
 
-        // Assert
-        assertFalse(result.isSuccessful());
-        assertNotNull(result.getMessage());
-        assertTrue(result.getMessage().contains("higher"));
+        assertThrows(AuctionNotFoundException.class,
+                () -> bidService.placeBid("AUC_MISSING", request, token));
     }
 
     @Test
-    @DisplayName("placeBid - Fails on closed auction")
-    void testPlaceBid_ClosedAuction_ReturnsFailed() {
-        // Arrange
-        BidResponse failedBid = new BidResponse();
-        failedBid.setSuccessful(false);
-        failedBid.setMessage("Auction is closed");
-        
-        when(bidService.placeBid("AUC001", 200.0, "token"))
-                .thenReturn(failedBid);
+    @DisplayName("placeBid - auction not active -> AuctionClosedException")
+    void testPlaceBid_AuctionNotActive_Throws() {
+        String token = "token";
+        when(serviceClient.validateToken(token)).thenReturn(validValidation);
+        when(serviceClient.authorizeRole(token, "BUYER")).thenReturn(true);
 
-        // Act
-        BidResponse result = bidService.placeBid("AUC001", 200.0, "token");
+        Auction auction = new Auction();
+        auction.setAuctionId("AUC_CLOSED");
+        auction.setStatus(AuctionStatus.CLOSED);
+        auction.setEndTime(LocalDateTime.now().minusHours(1));
+        auction.setCurrentHighestBid(BigDecimal.valueOf(100.00));
+        auction.setSellerId("SELLER_1");
+        auction.setItemId("ITEM_1");
 
-        // Assert
-        assertFalse(result.isSuccessful());
-        assertEquals("Auction is closed", result.getMessage());
+        when(auctionDAO.findById("AUC_CLOSED")).thenReturn(Optional.of(auction));
+
+        PlaceBidRequest request = new PlaceBidRequest();
+        request.setBidderId("BUYER_1");
+        request.setBidAmount(BigDecimal.valueOf(150.00));
+
+        assertThrows(AuctionClosedException.class,
+                () -> bidService.placeBid("AUC_CLOSED", request, token));
     }
 
     @Test
-    @DisplayName("placeBid - Sets bidder from authenticated token")
-    void testPlaceBid_SetsBidderFromToken() {
-        // Arrange
-        BidResponse response = new BidResponse();
-        response.setSuccessful(true);
-        response.setBidderId("BUYER001");
-        
-        when(bidService.placeBid(eq("AUC001"), anyDouble(), eq("token")))
-                .thenReturn(response);
+    @DisplayName("placeBid - bid not higher than current -> InvalidBidException")
+    void testPlaceBid_BidNotHigherThanCurrent_Throws() {
+        String token = "token";
+        when(serviceClient.validateToken(token)).thenReturn(validValidation);
+        when(serviceClient.authorizeRole(token, "BUYER")).thenReturn(true);
 
-        // Act
-        BidResponse result = bidService.placeBid("AUC001", 150.0, "token");
+        Auction auction = new Auction();
+        auction.setAuctionId("AUC_BID_TOO_LOW");
+        auction.setStatus(AuctionStatus.ACTIVE);
+        auction.setEndTime(LocalDateTime.now().plusHours(1));
+        auction.setCurrentHighestBid(BigDecimal.valueOf(200.00));
+        auction.setSellerId("SELLER_1");
+        auction.setItemId("ITEM_1");
+        auction.setReservePrice(BigDecimal.valueOf(200.00));
 
-        // Assert
-        assertNotNull(result.getBidderId());
-        assertEquals("BUYER001", result.getBidderId());
+        when(auctionDAO.findById("AUC_BID_TOO_LOW")).thenReturn(Optional.of(auction));
+
+        PlaceBidRequest request = new PlaceBidRequest();
+        request.setBidderId("BUYER_1");
+        request.setBidAmount(BigDecimal.valueOf(200.00)); // equal -> invalid
+
+        assertThrows(InvalidBidException.class,
+                () -> bidService.placeBid("AUC_BID_TOO_LOW", request, token));
     }
 
     @Test
-    @DisplayName("getBidHistory - Returns bids in chronological order")
-    void testGetBidHistory_ReturnsBidsInOrder() {
-        // Arrange
-        Bid bid1 = new Bid();
-        bid1.setBidId("BID001");
-        bid1.setBidAmount(BigDecimal.valueOf(100.0));
-        bid1.setCreatedAt(LocalDateTime.now().minusHours(2));
-        
-        Bid bid2 = new Bid();
-        bid2.setBidId("BID002");
-        bid2.setBidAmount(BigDecimal.valueOf(150.0));
-        bid2.setCreatedAt(LocalDateTime.now().minusHours(1));
-        
-        Bid bid3 = new Bid();
-        bid3.setBidId("BID003");
-        bid3.setBidAmount(BigDecimal.valueOf(200.0));
-        bid3.setCreatedAt(LocalDateTime.now());
-        
-        List<Bid> bids = Arrays.asList(bid1, bid2, bid3);
-        when(bidService.getBidHistory("AUC001")).thenReturn(bids);
+    @DisplayName("placeBid - success -> writes bid + updates highest bid + returns success response")
+    void testPlaceBid_Success() {
+        String token = "token";
+        String auctionId = "AUC_OK";
+        String bidderId = "BUYER_OK";
 
-        // Act
-        List<Bid> result = bidService.getBidHistory("AUC001");
+        when(serviceClient.validateToken(token)).thenReturn(validValidation);
+        when(serviceClient.authorizeRole(token, "BUYER")).thenReturn(true);
 
-        // Assert
-        assertEquals(3, result.size());
-        assertEquals("BID001", result.get(0).getBidId());
-        assertEquals("BID002", result.get(1).getBidId());
-        assertEquals("BID003", result.get(2).getBidId());
-        // Verify amounts are increasing
-        assertTrue(result.get(0).getBidAmount().compareTo(result.get(1).getBidAmount()) < 0);
-        assertTrue(result.get(1).getBidAmount().compareTo(result.get(2).getBidAmount()) < 0);
+        Auction auction = new Auction();
+        auction.setAuctionId(auctionId);
+        auction.setStatus(AuctionStatus.ACTIVE);
+        auction.setEndTime(LocalDateTime.now().plusHours(2));
+        auction.setCurrentHighestBid(BigDecimal.valueOf(100.00));
+        auction.setSellerId("SELLER_OK");
+        auction.setItemId("ITEM_OK");
+        auction.setReservePrice(BigDecimal.valueOf(50.00));
+
+        when(auctionDAO.findById(auctionId)).thenReturn(Optional.of(auction));
+
+        BigDecimal bidAmount = BigDecimal.valueOf(150.00);
+        PlaceBidRequest request = new PlaceBidRequest();
+        request.setBidderId(bidderId);
+        request.setBidAmount(bidAmount);
+
+        Bid createdBid = new Bid();
+        createdBid.setBidId("BID_OK");
+        createdBid.setAuctionId(auctionId);
+        createdBid.setBidderId(bidderId);
+        createdBid.setBidAmount(bidAmount);
+        createdBid.setBidTimestamp(LocalDateTime.now().minusMinutes(1));
+        when(bidDAO.createBid(any(Bid.class))).thenReturn(createdBid);
+        when(auctionDAO.updateHighestBid(auctionId, bidAmount, bidderId)).thenReturn(true);
+
+        // Keep leaderboard lookup simple.
+        when(serviceClient.getUserProfile(anyString())).thenReturn(null);
+        when(serviceClient.addLeaderboardEntry(anyString(), anyString(), anyString(), anyString(), any(BigDecimal.class), anyString(), anyString()))
+                .thenReturn(true);
+
+        BidResponse response = bidService.placeBid(auctionId, request, token);
+
+        assertNotNull(response);
+        assertTrue(response.isSuccess());
+        assertEquals("BID_OK", response.getBidId());
+        assertEquals(auctionId, response.getAuctionId());
+        assertEquals(bidderId, response.getBidderId());
+        assertEquals(bidAmount, response.getBidAmount());
+
+        // Verify bidDAO receives the expected bid content.
+        ArgumentCaptor<Bid> bidCaptor = ArgumentCaptor.forClass(Bid.class);
+        verify(bidDAO).createBid(bidCaptor.capture());
+        Bid bidSent = bidCaptor.getValue();
+        assertEquals(auctionId, bidSent.getAuctionId());
+        assertEquals(bidderId, bidSent.getBidderId());
+        assertEquals(bidAmount, bidSent.getBidAmount());
+
+        verify(auctionDAO).updateHighestBid(auctionId, bidAmount, bidderId);
+        verify(messagingTemplate).convertAndSend(containsTopic(auctionId), response);
     }
 
-    @Test
-    @DisplayName("getBidHistory - Returns empty list for auction with no bids")
-    void testGetBidHistory_NoAuction_ReturnsEmptyList() {
-        // Arrange
-        when(bidService.getBidHistory("AUC999")).thenReturn(Arrays.asList());
-
-        // Act
-        List<Bid> result = bidService.getBidHistory("AUC999");
-
-        // Assert
-        assertNotNull(result);
-        assertEquals(0, result.size());
-        verify(bidService).getBidHistory("AUC999");
-    }
-
-    @Test
-    @DisplayName("getHighestBid - Returns bid with maximum amount")
-    void testGetHighestBid_ReturnsMaxBid() {
-        // Arrange
-        Bid highestBid = new Bid();
-        highestBid.setBidId("BID003");
-        highestBid.setBidAmount(BigDecimal.valueOf(200.0));
-        highestBid.setBidderId("BUYER003");
-        
-        when(bidService.getHighestBid("AUC001")).thenReturn(highestBid);
-
-        // Act
-        Bid result = bidService.getHighestBid("AUC001");
-
-        // Assert
-        assertNotNull(result);
-        assertEquals("BID003", result.getBidId());
-        assertEquals(BigDecimal.valueOf(200.0), result.getBidAmount());
-        assertEquals("BUYER003", result.getBidderId());
-    }
-
-    @Test
-    @DisplayName("getHighestBid - Returns null for auction with no bids")
-    void testGetHighestBid_NoBids_ReturnsNull() {
-        // Arrange
-        when(bidService.getHighestBid("AUC999")).thenReturn(null);
-
-        // Act
-        Bid result = bidService.getHighestBid("AUC999");
-
-        // Assert
-        assertNull(result);
-        verify(bidService).getHighestBid("AUC999");
-    }
-
-    @Test
-    @DisplayName("getHighestBid - Works correctly with multiple bids")
-    void testGetHighestBid_MultipleBids_ReturnsMaximum() {
-        // Arrange
-        Bid maxBid = new Bid();
-        maxBid.setBidAmount(BigDecimal.valueOf(500.0));
-        
-        when(bidService.getHighestBid("AUC001")).thenReturn(maxBid);
-
-        // Act
-        Bid result = bidService.getHighestBid("AUC001");
-
-        // Assert
-        assertEquals(BigDecimal.valueOf(500.0), result.getBidAmount());
-    }
-
-    @Test
-    @DisplayName("getBidsByBidder - Returns all bids placed by specific bidder")
-    void testGetBidsByBidder_ReturnsBidderSpecificBids() {
-        // Arrange
-        Bid bid1 = new Bid();
-        bid1.setBidderId("BUYER001");
-        bid1.setAuctionId("AUC001");
-        
-        Bid bid2 = new Bid();
-        bid2.setBidderId("BUYER001");
-        bid2.setAuctionId("AUC002");
-        
-        List<Bid> bids = Arrays.asList(bid1, bid2);
-        when(bidService.getBidsByBidder("BUYER001")).thenReturn(bids);
-
-        // Act
-        List<Bid> result = bidService.getBidsByBidder("BUYER001");
-
-        // Assert
-        assertEquals(2, result.size());
-        result.forEach(bid -> assertEquals("BUYER001", bid.getBidderId()));
+    private static String containsTopic(String auctionId) {
+        return "/topic/auction/" + auctionId + "/bids";
     }
 }
+
