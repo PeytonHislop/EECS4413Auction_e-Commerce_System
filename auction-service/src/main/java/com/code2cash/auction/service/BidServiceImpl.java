@@ -11,11 +11,13 @@ import com.code2cash.auction.model.Auction;
 import com.code2cash.auction.model.Bid;
 import com.code2cash.auction.util.ServiceClient;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -33,6 +35,9 @@ public class BidServiceImpl implements BidService {
     
     @Autowired
     private ServiceClient serviceClient;
+    
+    @Autowired
+    private SimpMessagingTemplate messagingTemplate;
     
     @Override
     @Transactional
@@ -102,6 +107,32 @@ public class BidServiceImpl implements BidService {
         response.setBidderId(createdBid.getBidderId());
         response.setBidAmount(createdBid.getBidAmount());
         response.setBidTimestamp(createdBid.getBidTimestamp());
+        
+        // 11. Send real-time update to subscribers
+        messagingTemplate.convertAndSend("/topic/auction/" + auctionId + "/bids", response);
+        
+        // 12. Add entry to leaderboard
+        try {
+            // Get bidder and seller names for leaderboard
+            Map<String, Object> bidderProfile = serviceClient.getUserProfile(request.getBidderId());
+            Map<String, Object> sellerProfile = serviceClient.getUserProfile(auction.getSellerId());
+            
+            String bidderName = bidderProfile != null ? (String) bidderProfile.get("username") : request.getBidderId();
+            String sellerName = sellerProfile != null ? (String) sellerProfile.get("username") : auction.getSellerId();
+            
+            serviceClient.addLeaderboardEntry(
+                auctionId,
+                auction.getItemId(),
+                request.getBidderId(),
+                bidderName,
+                request.getBidAmount(),
+                auction.getSellerId(),
+                sellerName
+            );
+        } catch (Exception e) {
+            // Log error but don't fail the bid
+            System.err.println("Failed to add bid to leaderboard: " + e.getMessage());
+        }
         
         return response;
     }
