@@ -1,14 +1,11 @@
 package com.code2cash.auction.util;
-
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
-
 import java.util.HashMap;
 import java.util.Map;
-
 /**
  * Client for communicating with other microservices
  * Uses Spring WebClient for non-blocking HTTP calls
@@ -31,7 +28,10 @@ public class ServiceClient {
     
     @Value("${service.payment.url}")
     private String paymentServiceUrl;
-    
+
+    @Value("${service.leaderboard.url}")
+    private String leaderboardServiceUrl;
+
     // Toggle between mock and real service calls
     @Value("${service.iam.mock:true}")
     private boolean mockIAM;
@@ -228,7 +228,52 @@ public class ServiceClient {
             return false;
         }
     }
-    
+
+    /**
+     * Add bid entry to leaderboard service
+     * Calls: POST /api/leaderboard/bids
+     * 
+     * @param auctionId The auction ID
+     * @param itemId The item ID
+     * @param bidderId The bidder's user ID
+     * @param bidderName The bidder's name
+     * @param bidAmount The bid amount
+     * @param sellerId The seller's user ID
+     * @param sellerName The seller's name
+     * @return true if entry added successfully
+     */
+    public boolean addLeaderboardEntry(String auctionId, String itemId, String bidderId, 
+                                      String bidderName, java.math.BigDecimal bidAmount, 
+                                      String sellerId, String sellerName) {
+        try {
+            Map<String, Object> requestBody = new HashMap<>();
+            requestBody.put("auctionId", auctionId);
+            requestBody.put("itemId", itemId);
+            requestBody.put("bidderId", bidderId);
+            requestBody.put("bidderName", bidderName);
+            requestBody.put("bidAmount", bidAmount);
+            requestBody.put("sellerId", sellerId);
+            requestBody.put("sellerName", sellerName);
+
+            webClient.post()
+                .uri(leaderboardServiceUrl + "/api/leaderboard/bids")
+                .bodyValue(requestBody)
+                .retrieve()
+                .bodyToMono(Void.class)
+                .block();
+
+            System.out.println("Added bid to leaderboard: " + auctionId + " - $" + bidAmount);
+            return true;
+
+        } catch (WebClientResponseException e) {
+            System.err.println("Error adding leaderboard entry: " + e.getStatusCode() + " - " + e.getMessage());
+            return false;
+        } catch (Exception e) {
+            System.err.println("Unexpected error adding leaderboard entry: " + e.getMessage());
+            return false;
+        }
+    }
+
     /**
      * Inner class for validation response from IAM service
      */
