@@ -3,8 +3,13 @@ package com.code2cash.catalogue.controller;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
+
+import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.*;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.hateoas.CollectionModel;
+import org.springframework.hateoas.EntityModel;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
@@ -17,6 +22,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.code2cash.catalogue.assembler.ItemModelAssembler;
 import com.code2cash.catalogue.dto.ItemDTO;
 import com.code2cash.catalogue.dto.ValidateTokenResponse;
 import com.code2cash.catalogue.model.Item;
@@ -35,6 +41,9 @@ public class CatalogueController {
 
     @Autowired
     private IAMService iamService;
+
+    @Autowired
+    private ItemModelAssembler itemModelAssembler;
 
     // UC-CAT-7: Create new item (Requires SELLER role)
     @PostMapping("/items")
@@ -63,14 +72,27 @@ public class CatalogueController {
         // Set the sellerId from the validated token (not from request body)
         itemDTO.setSellerId(tokenResponse.getUserId());
         Item createdItem = catalogueFacade.addItem(itemDTO);
-        return ResponseEntity.ok(createdItem);
+        
+        // Return item with HATEOAS links
+        EntityModel<Item> itemModel = itemModelAssembler.toModel(createdItem);
+        return ResponseEntity.ok(itemModel);
     }
 
     // UC-CAT-2.1: Search items (Public - no auth required)
     @GetMapping("/items")
-    public ResponseEntity<List<Item>> getItemsByKeyword(@RequestParam(required = false) String keyword) {
+    public ResponseEntity<CollectionModel<EntityModel<Item>>> getItemsByKeyword(
+            @RequestParam(required = false) String keyword) {
         List<Item> items = catalogueFacade.getItemsByKeyword(keyword);
-        return ResponseEntity.ok(items);
+        
+        // Convert to collection of EntityModels with HATEOAS links
+        List<EntityModel<Item>> itemModels = items.stream()
+                .map(itemModelAssembler::toModel)
+                .collect(Collectors.toList());
+        
+        CollectionModel<EntityModel<Item>> collectionModel = CollectionModel.of(itemModels,
+                linkTo(methodOn(CatalogueController.class).getItemsByKeyword(keyword)).withSelfRel());
+        
+        return ResponseEntity.ok(collectionModel);
     }
 
     // UC-CAT-2: Get specific item details (Public - no auth required)
@@ -80,7 +102,10 @@ public class CatalogueController {
         if (item == null) {
             return ResponseEntity.notFound().build();
         }
-        return ResponseEntity.ok(item);
+        
+        // Return item with HATEOAS links
+        EntityModel<Item> itemModel = itemModelAssembler.toModel(item);
+        return ResponseEntity.ok(itemModel);
     }
 
     // Helper method to create error response
