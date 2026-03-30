@@ -1,215 +1,295 @@
 package com.code2cash.auction.repository;
 
+import com.code2cash.auction.AuctionServiceApplication;
+import com.code2cash.auction.dao.AuctionDAO;
+import com.code2cash.auction.dao.BidDAO;
 import com.code2cash.auction.model.Auction;
 import com.code2cash.auction.model.AuctionStatus;
+import com.code2cash.auction.model.Bid;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
-import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Integration tests for AuctionRepository
- * Tests database queries for auction data access
+ * Integration tests for {@link AuctionDAO}.
+ * Uses the real SQLite schema (schema.sql) and verifies JDBC query behavior.
  */
-@DataJpaTest
+@SpringBootTest(classes = AuctionServiceApplication.class)
 class AuctionRepositoryTest {
 
-    @Autowired
-    private TestEntityManager entityManager;
+    private static final String DB_FILE_PATH = "target/auction-service-test-" + UUID.randomUUID() + ".db";
+
+    @DynamicPropertySource
+    static void registerProperties(DynamicPropertyRegistry registry) {
+        // Ensure forward slashes for JDBC URL on Windows.
+        String normalizedPath = DB_FILE_PATH.replace('\\', '/');
+        registry.add("spring.datasource.url", () -> "jdbc:sqlite:" + normalizedPath);
+        registry.add("spring.datasource.driver-class-name", () -> "org.sqlite.JDBC");
+
+        registry.add("spring.sql.init.mode", () -> "always");
+        registry.add("spring.sql.init.schema-locations", () -> "classpath:schema.sql");
+
+        // Avoid scheduler side-effects during tests.
+        registry.add("spring.task.scheduling.enabled", () -> "false");
+    }
 
     @Autowired
-    private AuctionRepository auctionRepository;
+    private AuctionDAO auctionDAO;
 
-    private Auction activeAuction;
-    private Auction closedAuction;
-    private Auction expiredAuction;
+    @Autowired
+    private BidDAO bidDAO;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     @BeforeEach
-    void setUp() {
-        // Create active auction (expires in future)
-        activeAuction = new Auction();
-        activeAuction.setItemId("ITEM001");
-        activeAuction.setStatus(AuctionStatus.ACTIVE);
-        activeAuction.setStartPrice(BigDecimal.valueOf(100.0));
-        activeAuction.setCreatedAt(LocalDateTime.now());
-        activeAuction.setExpiresAt(LocalDateTime.now().plusHours(24));
-        activeAuction.setSellerId("SELLER001");
-        
-        // Create closed auction
-        closedAuction = new Auction();
-        closedAuction.setItemId("ITEM002");
-        closedAuction.setStatus(AuctionStatus.CLOSED);
-        closedAuction.setStartPrice(BigDecimal.valueOf(200.0));
-        closedAuction.setCreatedAt(LocalDateTime.now().minusDays(2));
-        closedAuction.setExpiresAt(LocalDateTime.now().minusHours(1));
-        closedAuction.setClosedAt(LocalDateTime.now().minusMinutes(30));
-        closedAuction.setSellerId("SELLER001");
-        
-        // Create expired auction (should be auto-closed)
-        expiredAuction = new Auction();
-        expiredAuction.setItemId("ITEM003");
-        expiredAuction.setStatus(AuctionStatus.ACTIVE);
-        expiredAuction.setStartPrice(BigDecimal.valueOf(150.0));
-        expiredAuction.setCreatedAt(LocalDateTime.now().minusDays(1));
-        expiredAuction.setExpiresAt(LocalDateTime.now().minusHours(2));
-        expiredAuction.setSellerId("SELLER002");
-        
-        entityManager.persist(activeAuction);
-        entityManager.persist(closedAuction);
-        entityManager.persist(expiredAuction);
-        entityManager.flush();
+    void cleanDatabase() {
+        // Keep this order because bids reference auctions.
+        jdbcTemplate.update("DELETE FROM bids");
+        jdbcTemplate.update("DELETE FROM auctions");
+    }
+
+    private Auction createAuction(String auctionId, AuctionStatus status, LocalDateTime startTime, LocalDateTime endTime) {
+        Auction auction = new Auction();
+        auction.setAuctionId(auctionId);
+        auction.setItemId("ITEM_" + auctionId);
+        auction.setSellerId("SELLER_" + auctionId);
+        auction.setStartTime(startTime);
+        auction.setEndTime(endTime);
+        auction.setStatus(status);
+        auction.setReservePrice(BigDecimal.valueOf(10.00));
+
+        // Default current/highest values.
+        auction.setCurrentHighestBid(BigDecimal.ZERO);
+        auction.setCurrentHighestBidderId(null);
+        auction.setWinnerId(null);
+
+        return auctionDAO.createAuction(auction);
     }
 
     @Test
-    @DisplayName("findByStatus - Returns only active auctions")
-    void testFindByStatus_ReturnsOnlyActiveAuctions() {
-        // Act
-        List<Auction> result = auctionRepository.findByStatus(AuctionStatus.ACTIVE);
+    @DisplayName("createAuction + findById - round-trip key auction fields")
+    void testCreateAuctionAndFindById_RoundTrip() {
+        String auctionId = "AUC_TEST_CREATE";
+        LocalDateTime start = LocalDateTime.of(2026, 3, 5, 8, 0, 0);
+        LocalDateTime end = LocalDateTime.of(2026, 3, 5, 10, 0, 0);
 
-        // Assert
+        Auction created = createAuction(auctionId, AuctionStatus.ACTIVE, start, end);
+        assertEquals(auctionId, created.getAuctionId());
+
+        Optional<Auction> found = auctionDAO.findById(auctionId);
+        assertTrue(found.isPresent());
+
+        Auction auction = found.get();
+        assertEquals(auctionId, auction.getAuctionId());
+        assertEquals("ITEM_" + auctionId, auction.getItemId());
+        assertEquals("SELLER_" + auctionId, auction.getSellerId());
+        assertEquals(AuctionStatus.ACTIVE, auction.getStatus());
+        assertEquals(start, auction.getStartTime());
+        assertEquals(end, auction.getEndTime());
+        assertNotNull(auction.getCreatedAt());
+        assertNotNull(auction.getUpdatedAt());
+    }
+
+    @Test
+    @DisplayName("findByStatus - returns only auctions matching status")
+    void testFindByStatus_ReturnsOnlyAuctionsWithStatus() {
+        LocalDateTime start = LocalDateTime.now().minusHours(2);
+        LocalDateTime endFuture = LocalDateTime.now().plusHours(2);
+
+        createAuction("AUC_STATUS_ACTIVE", AuctionStatus.ACTIVE, start, endFuture);
+        createAuction("AUC_STATUS_CLOSED", AuctionStatus.CLOSED, start, endFuture);
+
+        List<Auction> active = auctionDAO.findByStatus(AuctionStatus.ACTIVE);
+        assertNotNull(active);
+        assertEquals(1, active.size());
+        assertEquals("AUC_STATUS_ACTIVE", active.get(0).getAuctionId());
+        assertEquals(AuctionStatus.ACTIVE, active.get(0).getStatus());
+
+        List<Auction> closed = auctionDAO.findByStatus(AuctionStatus.CLOSED);
+        assertNotNull(closed);
+        assertEquals(1, closed.size());
+        assertEquals("AUC_STATUS_CLOSED", closed.get(0).getAuctionId());
+        assertEquals(AuctionStatus.CLOSED, closed.get(0).getStatus());
+    }
+
+    @Test
+    @DisplayName("findActiveAuctions - returns ACTIVE auctions that have not expired")
+    void testFindActiveAuctions_ReturnsOnlyActiveAndNotExpired() {
+        LocalDateTime start = LocalDateTime.of(2026, 3, 30, 0, 0, 0);
+
+        // Should be returned
+        LocalDateTime endActiveFuture = LocalDateTime.of(2099, 1, 1, 0, 0, 0);
+        createAuction("AUC_ACTIVE_FUTURE", AuctionStatus.ACTIVE, start, endActiveFuture);
+
+        // Should not be returned (expired)
+        LocalDateTime endActivePast = LocalDateTime.of(2000, 1, 1, 0, 0, 0);
+        createAuction("AUC_ACTIVE_EXPIRED", AuctionStatus.ACTIVE, start, endActivePast);
+
+        // Should not be returned (wrong status)
+        createAuction("AUC_CLOSED", AuctionStatus.CLOSED, start, endActiveFuture);
+
+        List<Auction> result = auctionDAO.findActiveAuctions();
         assertNotNull(result);
         assertEquals(1, result.size());
-        assertEquals("ITEM001", result.get(0).getItemId());
+        assertEquals("AUC_ACTIVE_FUTURE", result.get(0).getAuctionId());
         assertEquals(AuctionStatus.ACTIVE, result.get(0).getStatus());
     }
 
     @Test
-    @DisplayName("findByStatus - Returns closed auctions")
-    void testFindByStatus_ReturnsClosed() {
-        // Act
-        List<Auction> result = auctionRepository.findByStatus(AuctionStatus.CLOSED);
-
-        // Assert
-        assertNotNull(result);
-        assertEquals(1, result.size());
-        assertEquals(AuctionStatus.CLOSED, result.get(0).getStatus());
-    }
-
-    @Test
-    @DisplayName("findByStatusAndExpiredBefore - Returns expired active auctions")
-    void testFindExpiredAuctions_ReturnsAuctionsExpiredBeforeTime() {
-        // Arrange
-        LocalDateTime cutoffTime = LocalDateTime.now();
-
-        // Act
-        List<Auction> result = auctionRepository.findByStatusAndExpiresAtBefore(
-                AuctionStatus.ACTIVE, 
-                cutoffTime
-        );
-
-        // Assert
-        assertNotNull(result);
-        assertEquals(1, result.size());
-        assertEquals("ITEM003", result.get(0).getItemId());
-        assertTrue(result.get(0).getExpiresAt().isBefore(cutoffTime));
-    }
-
-    @Test
-    @DisplayName("findBySellerId - Returns all auctions for seller")
+    @DisplayName("findBySellerId - returns auctions for seller")
     void testFindBySellerId_ReturnsSellerAuctions() {
-        // Act
-        List<Auction> result = auctionRepository.findBySellerId("SELLER001");
+        LocalDateTime start = LocalDateTime.now().minusHours(2);
+        LocalDateTime endFuture = LocalDateTime.now().plusHours(2);
 
-        // Assert
+        createAuction("AUC_SELLER_1", AuctionStatus.ACTIVE, start, endFuture);
+        createAuction("AUC_SELLER_2", AuctionStatus.ACTIVE, start, endFuture);
+
+        // Override sellerId to make sure findBySellerId filters correctly.
+        Auction auction = auctionDAO.findById("AUC_SELLER_2").orElseThrow();
+        auction.setSellerId("SELLER_SHARED");
+        auction.setItemId("ITEM_" + "AUC_SELLER_2_RENAMED");
+        auctionDAO.updateAuction(auction);
+
+        Auction auction1 = auctionDAO.findById("AUC_SELLER_1").orElseThrow();
+        auction1.setSellerId("SELLER_SHARED");
+        auctionDAO.updateAuction(auction1);
+
+        List<Auction> result = auctionDAO.findBySellerId("SELLER_SHARED");
         assertNotNull(result);
         assertEquals(2, result.size());
-        result.forEach(auction -> assertEquals("SELLER001", auction.getSellerId()));
+        result.forEach(a -> assertEquals("SELLER_SHARED", a.getSellerId()));
     }
 
     @Test
-    @DisplayName("findById - Returns optional with auction when exists")
-    void testFindById_ExistingAuction_ReturnsAuction() {
-        // Assert that activeAuction has ID
-        String auctionId = activeAuction.getAuctionId();
-        
-        // Act
-        Optional<Auction> result = auctionRepository.findById(auctionId);
+    @DisplayName("updateHighestBid - updates highest bid amount and bidder id")
+    void testUpdateHighestBid_UpdatesHighestBidAndBidder() {
+        String auctionId = "AUC_TEST_UPDATE_HIGHEST";
+        LocalDateTime start = LocalDateTime.of(2026, 3, 30, 0, 0, 0);
+        LocalDateTime endFuture = LocalDateTime.of(2099, 1, 1, 0, 0, 0);
+        createAuction(auctionId, AuctionStatus.ACTIVE, start, endFuture);
 
-        // Assert
-        assertTrue(result.isPresent());
-        assertEquals("ITEM001", result.get().getItemId());
+        boolean updated = auctionDAO.updateHighestBid(auctionId, BigDecimal.valueOf(200.00), "BUYER_WINNER");
+        assertTrue(updated);
+
+        Auction auction = auctionDAO.findById(auctionId).orElseThrow();
+        assertEquals(0, auction.getCurrentHighestBid().compareTo(BigDecimal.valueOf(200.00)));
+        assertEquals("BUYER_WINNER", auction.getCurrentHighestBidderId());
     }
 
     @Test
-    @DisplayName("findById - Returns empty optional when not found")
-    void testFindById_NonExistent_ReturnsEmpty() {
-        // Act
-        Optional<Auction> result = auctionRepository.findById("NONEXISTENT");
+    @DisplayName("closeAuction - updates auction status and winner id")
+    void testCloseAuction_UpdatesStatusAndWinnerId() {
+        String auctionId = "AUC_TEST_CLOSE";
+        LocalDateTime start = LocalDateTime.now().minusHours(2);
+        LocalDateTime endFuture = LocalDateTime.now().plusHours(2);
+        createAuction(auctionId, AuctionStatus.ACTIVE, start, endFuture);
 
-        // Assert
-        assertTrue(result.isEmpty());
+        boolean closed = auctionDAO.closeAuction(auctionId, "WINNER_1", AuctionStatus.NO_SALE);
+        assertTrue(closed);
+
+        Auction auction = auctionDAO.findById(auctionId).orElseThrow();
+        assertEquals(AuctionStatus.NO_SALE, auction.getStatus());
+        assertEquals("WINNER_1", auction.getWinnerId());
     }
 
     @Test
-    @DisplayName("save - Persists new auction to database")
-    void testSave_NewAuction_PersistsToDatabase() {
-        // Arrange
-        Auction newAuction = new Auction();
-        newAuction.setItemId("ITEM004");
-        newAuction.setStatus(AuctionStatus.ACTIVE);
-        newAuction.setStartPrice(BigDecimal.valueOf(300.0));
-        newAuction.setCreatedAt(LocalDateTime.now());
-        newAuction.setExpiresAt(LocalDateTime.now().plusHours(24));
-        newAuction.setSellerId("SELLER003");
+    @DisplayName("findExpiredActiveAuctions - returns ACTIVE auctions whose end time has passed")
+    void testFindExpiredActiveAuctions_ReturnsExpiredActiveAuctions() {
+        LocalDateTime start = LocalDateTime.of(2026, 3, 30, 0, 0, 0);
 
-        // Act
-        Auction saved = auctionRepository.save(newAuction);
+        createAuction("AUC_EXPIRED_1", AuctionStatus.ACTIVE, start, LocalDateTime.of(2000, 1, 1, 0, 0, 0));
+        createAuction("AUC_ACTIVE_FUTURE", AuctionStatus.ACTIVE, start, LocalDateTime.of(2099, 1, 1, 0, 0, 0));
 
-        // Assert
-        assertNotNull(saved.getAuctionId());
-        assertEquals("ITEM004", saved.getItemId());
-        
-        // Verify persistence
-        Optional<Auction> retrieved = auctionRepository.findById(saved.getAuctionId());
-        assertTrue(retrieved.isPresent());
-        assertEquals("ITEM004", retrieved.get().getItemId());
-    }
-
-    @Test
-    @DisplayName("delete - Removes auction from database")
-    void testDelete_ExistingAuction_RemovesFromDatabase() {
-        // Arrange
-        String auctionId = activeAuction.getAuctionId();
-
-        // Act
-        auctionRepository.delete(activeAuction);
-
-        // Assert
-        Optional<Auction> result = auctionRepository.findById(auctionId);
-        assertTrue(result.isEmpty());
-    }
-
-    @Test
-    @DisplayName("countByStatus - Returns count of auctions by status")
-    void testCountByStatus_ReturnsCorrectCount() {
-        // Act
-        long activeCount = auctionRepository.countByStatus(AuctionStatus.ACTIVE);
-        long closedCount = auctionRepository.countByStatus(AuctionStatus.CLOSED);
-
-        // Assert
-        assertEquals(1, activeCount);  // activeAuction + expiredAuction but expiredAuction is ACTIVE
-        assertEquals(2, closedCount);  // Just closedAuction initially, but after expiry check...
-        // Note: Actual count depends on cleanup, but structure is validated
-    }
-
-    @Test
-    @DisplayName("findByItemId - Returns auction for specific item")
-    void testFindByItemId_ReturnsAuctionForItem() {
-        // Act
-        Auction result = auctionRepository.findByItemId("ITEM001");
-
-        // Assert
+        List<Auction> result = auctionDAO.findExpiredActiveAuctions();
         assertNotNull(result);
-        assertEquals("ITEM001", result.getItemId());
-        assertEquals("SELLER001", result.getSellerId());
+        assertEquals(1, result.size());
+        assertEquals("AUC_EXPIRED_1", result.get(0).getAuctionId());
+    }
+
+    @Test
+    @DisplayName("updateAuction - updates auction record fields")
+    void testUpdateAuction_UpdatesAuctionFields() {
+        String auctionId = "AUC_TEST_UPDATE";
+        LocalDateTime start1 = LocalDateTime.of(2026, 3, 6, 9, 0, 0);
+        LocalDateTime end1 = LocalDateTime.of(2026, 3, 6, 11, 0, 0);
+
+        createAuction(auctionId, AuctionStatus.ACTIVE, start1, end1);
+
+        Auction toUpdate = auctionDAO.findById(auctionId).orElseThrow();
+        toUpdate.setItemId("ITEM_UPDATED");
+        toUpdate.setSellerId("SELLER_UPDATED");
+        toUpdate.setStartTime(LocalDateTime.of(2026, 3, 6, 10, 0, 0));
+        toUpdate.setEndTime(LocalDateTime.of(2026, 3, 6, 12, 0, 0));
+        toUpdate.setStatus(AuctionStatus.CLOSED);
+        toUpdate.setReservePrice(BigDecimal.valueOf(999.99));
+        toUpdate.setCurrentHighestBid(BigDecimal.valueOf(123.45));
+        toUpdate.setCurrentHighestBidderId("BUYER_UPDATED");
+        toUpdate.setWinnerId("BUYER_UPDATED");
+
+        boolean updated = auctionDAO.updateAuction(toUpdate);
+        assertTrue(updated);
+
+        Auction updatedAuction = auctionDAO.findById(auctionId).orElseThrow();
+        assertEquals("ITEM_UPDATED", updatedAuction.getItemId());
+        assertEquals("SELLER_UPDATED", updatedAuction.getSellerId());
+        assertEquals(AuctionStatus.CLOSED, updatedAuction.getStatus());
+        assertEquals(BigDecimal.valueOf(999.99), updatedAuction.getReservePrice());
+        assertEquals(BigDecimal.valueOf(123.45), updatedAuction.getCurrentHighestBid());
+        assertEquals("BUYER_UPDATED", updatedAuction.getCurrentHighestBidderId());
+        assertEquals("BUYER_UPDATED", updatedAuction.getWinnerId());
+    }
+
+    @Test
+    @DisplayName("deleteAuction - deletes auction (and bids via ON DELETE CASCADE)")
+    void testDeleteAuction_CascadesToBids() {
+        String auctionId = "AUC_TEST_DELETE_CASCADE";
+        LocalDateTime start = LocalDateTime.of(2026, 3, 30, 0, 0, 0);
+        LocalDateTime endFuture = LocalDateTime.of(2099, 1, 1, 0, 0, 0);
+        createAuction(auctionId, AuctionStatus.ACTIVE, start, endFuture);
+
+        Bid b1 = new Bid();
+        b1.setBidId("BID_C1");
+        b1.setAuctionId(auctionId);
+        b1.setBidderId("BUYER_1");
+        b1.setBidAmount(BigDecimal.valueOf(10.00));
+        b1.setBidTimestamp(LocalDateTime.now().minusMinutes(10));
+        bidDAO.createBid(b1);
+
+        Bid b2 = new Bid();
+        b2.setBidId("BID_C2");
+        b2.setAuctionId(auctionId);
+        b2.setBidderId("BUYER_2");
+        b2.setBidAmount(BigDecimal.valueOf(20.00));
+        b2.setBidTimestamp(LocalDateTime.now().minusMinutes(5));
+        bidDAO.createBid(b2);
+
+        assertEquals(2, bidDAO.findByAuctionId(auctionId).size());
+
+        auctionDAO.deleteAuction(auctionId);
+
+        assertTrue(auctionDAO.findById(auctionId).isEmpty());
+        assertTrue(bidDAO.findByAuctionId(auctionId).isEmpty());
+    }
+
+    @Test
+    @DisplayName("findById - returns empty optional for unknown auction id")
+    void testFindById_UnknownAuction_ReturnsEmptyOptional() {
+        Optional<Auction> result = auctionDAO.findById("DOES_NOT_EXIST");
+        assertTrue(result.isEmpty());
     }
 }
+
