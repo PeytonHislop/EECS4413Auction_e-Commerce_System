@@ -1,11 +1,34 @@
-import SockJS from 'sockjs-client';
-import { Client } from '@stomp/stompjs';
-
 class WebSocketClient {
   constructor() {
     this.client = null;
     this.subscriptions = new Map();
     this.isConnected = false;
+    this.stompClientClass = null;
+    this.sockJSFactory = null;
+    this.loadingPromise = null;
+  }
+
+  async ensureLibrariesLoaded() {
+    if (this.stompClientClass && this.sockJSFactory) return;
+    if (this.loadingPromise) {
+      await this.loadingPromise;
+      return;
+    }
+
+    this.loadingPromise = (async () => {
+      const sockJsPkg = "sockjs-client";
+      const stompPkg = "@stomp/stompjs";
+
+      const [sockModule, stompModule] = await Promise.all([
+        import(/* @vite-ignore */ sockJsPkg),
+        import(/* @vite-ignore */ stompPkg)
+      ]);
+
+      this.sockJSFactory = sockModule.default || sockModule.SockJS;
+      this.stompClientClass = stompModule.Client;
+    })();
+
+    await this.loadingPromise;
   }
 
   connect(onConnect, onError) {
@@ -13,35 +36,46 @@ class WebSocketClient {
       return;
     }
 
-    // Connect directly to auction service (assuming gateway forwards or direct connection)
-    const socket = new SockJS('http://localhost:8082/ws');
-    this.client = new Client({
-      webSocketFactory: () => socket,
-      debug: (str) => console.log(str),
-      reconnectDelay: 5000,
-      heartbeatIncoming: 4000,
-      heartbeatOutgoing: 4000,
-    });
+    this.ensureLibrariesLoaded()
+      .then(() => {
+        if (!this.stompClientClass || !this.sockJSFactory) {
+          throw new Error("WebSocket libraries failed to initialize.");
+        }
 
-    this.client.onConnect = (frame) => {
-      console.log('Connected to WebSocket');
-      this.isConnected = true;
-      if (onConnect) onConnect();
-    };
+        const wsUrl = import.meta.env.VITE_AUCTION_WS_URL || "http://localhost:8082/ws";
+        this.client = new this.stompClientClass({
+          webSocketFactory: () => new this.sockJSFactory(wsUrl),
+          debug: (str) => console.log(str),
+          reconnectDelay: 5000,
+          heartbeatIncoming: 4000,
+          heartbeatOutgoing: 4000,
+        });
 
-    this.client.onStompError = (frame) => {
-      console.error('STOMP error:', frame.headers['message']);
-      console.error('Details:', frame.body);
-      this.isConnected = false;
-      if (onError) onError(frame);
-    };
+        this.client.onConnect = () => {
+          console.log("Connected to WebSocket");
+          this.isConnected = true;
+          if (onConnect) onConnect();
+        };
 
-    this.client.onWebSocketClose = () => {
-      console.log('WebSocket connection closed');
-      this.isConnected = false;
-    };
+        this.client.onStompError = (frame) => {
+          console.error("STOMP error:", frame.headers["message"]);
+          console.error("Details:", frame.body);
+          this.isConnected = false;
+          if (onError) onError(frame);
+        };
 
-    this.client.activate();
+        this.client.onWebSocketClose = () => {
+          console.log("WebSocket connection closed");
+          this.isConnected = false;
+        };
+
+        this.client.activate();
+      })
+      .catch((error) => {
+        console.warn("WebSocket disabled:", error?.message || error);
+        this.isConnected = false;
+        if (onError) onError(error);
+      });
   }
 
   disconnect() {
