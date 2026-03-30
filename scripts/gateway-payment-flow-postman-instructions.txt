@@ -1,0 +1,208 @@
+Testing Guide For Postman
+
+This document explains how to test the payment service through the **Gateway Service**
+---
+
+# System Overview
+
+All requests go through the Gateway:
+
+
+http://localhost:8080
+
+
+## Services
+
+| Service | Port |
+|--------|------|
+| Gateway | 8080 |
+| IAM | 8081 |
+| Auction | 8082 |
+| Catalogue | 8083 |
+| Payment | 8084 |
+
+---
+
+# Startup Order
+
+Start services in this order:
+
+1. IAM Service  
+2. Auction Service  
+3. Catalogue Service  
+4. Payment Service  
+5. Gateway Service  
+
+---
+
+# Main End-to-End Test Flow
+
+This flow verifies the **entire system**, ending with a successful payment.
+
+---
+
+## Step 1 — Create Buyer
+
+POST `/api/auth/signup`
+
+```json
+{
+  "username": "john1",
+  "password": "password123!",
+  "firstName": "John",
+  "lastName": "Doe",
+  "email": "john@email.com",
+  "role": "BUYER",
+  "shippingAddress": {
+    "streetNumber": "10",
+    "streetName": "King St",
+    "city": "Toronto",
+    "country": "Canada",
+    "postalCode": "M1M1M1"
+  }
+}
+
+Step 2 — Login Buyer
+
+POST /api/auth/login
+
+{
+  "username": "john1",
+  "password": "password123!"
+}
+
+Save:
+
+BUYER_TOKEN
+BUYER_USER_ID
+Step 3 — Create Seller
+
+POST /api/auth/signup
+
+{
+  "username": "peyton1",
+  "password": "password123!",
+  "firstName": "Peyton",
+  "lastName": "Doe",
+  "email": "pey@email.com",
+  "role": "SELLER",
+  "shippingAddress": {
+    "streetNumber": "3090",
+    "streetName": "King St",
+    "city": "Toronto",
+    "country": "Canada",
+    "postalCode": "M1M1M1"
+  }
+}
+
+Step 4 — Login Seller
+
+POST /api/auth/login
+
+{
+  "username": "peyton1",
+  "password": "password123!"
+}
+
+Save:
+
+SELLER_TOKEN
+SELLER_USER_ID
+
+Step 5 — Create Auction (Seller)
+
+POST /api/auctions
+
+Headers:
+
+Authorization: Bearer SELLER_TOKEN
+{
+  "itemId": "1",
+  "sellerId": "SELLER_USER_ID",
+  "durationHours": 24,
+  "reservePrice": 150.00
+}
+
+Save:
+
+AUCTION_ID
+
+Step 6 — Place Bid (Buyer)
+
+POST /api/auctions/{AUCTION_ID}/bids
+
+Headers:
+
+Authorization: Bearer BUYER_TOKEN
+{
+  "bidderId": "BUYER_USER_ID",
+  "bidAmount": 175.00
+}
+
+Step 7 — Close Auction (Seller)
+
+PUT /api/auctions/{AUCTION_ID}/close
+
+Headers:
+
+Authorization: Bearer SELLER_TOKEN
+
+Expected:
+
+status = CLOSED
+winnerId = BUYER_USER_ID
+
+Step 8 — Process Payment (Buyer)
+
+POST /api/payments/process
+
+Headers:
+
+Authorization: Bearer BUYER_TOKEN
+{
+  "auctionId": "AUCTION_ID",
+  "cardNumber": "4111111111111111",
+  "nameOnCard": "John Doe",
+  "expiry": "12/28",
+  "cvv": "123"
+}
+Expected Final Response
+{
+  "orderId": "...",
+  "itemPrice": 175.0,
+  "shippingCost": 25.0,
+  "total": 200.0,
+  "shippingDays": 3,
+  "shippingAddress": "10 King St, Toronto, Canada, M1M1M1"
+}
+Robustness Tests
+Invalid Token
+
+→ 401 Unauthorized
+
+Wrong Role (SELLER tries payment)
+
+→ 403 Forbidden
+
+Non-Winner Attempts Payment
+
+→ 403 Forbidden
+
+Invalid Card Number
+"cardNumber": "123"
+
+→ 400 Bad Request
+
+Invalid CVV
+"cvv": "1"
+
+→ 400 Bad Request
+
+Invalid Expiry
+"expiry": "99/99"
+
+→ 400 Bad Request
+
+Missing Field
+
+→ 400 Bad Request
