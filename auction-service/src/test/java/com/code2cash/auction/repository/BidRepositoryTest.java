@@ -1,271 +1,256 @@
 package com.code2cash.auction.repository;
 
+import com.code2cash.auction.AuctionServiceApplication;
+import com.code2cash.auction.dao.AuctionDAO;
+import com.code2cash.auction.dao.BidDAO;
+import com.code2cash.auction.model.Auction;
+import com.code2cash.auction.model.AuctionStatus;
 import com.code2cash.auction.model.Bid;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
-import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Integration tests for BidRepository
- * Tests database queries for bid data access
+ * Integration tests for {@link BidDAO}.
+ * Uses the real SQLite schema (schema.sql) and verifies JDBC query behavior.
  */
-@DataJpaTest
+@SpringBootTest(classes = AuctionServiceApplication.class)
 class BidRepositoryTest {
 
-    @Autowired
-    private TestEntityManager entityManager;
+    private static final String DB_FILE_PATH = "target/auction-service-test-" + UUID.randomUUID() + ".db";
+
+    @DynamicPropertySource
+    static void registerProperties(DynamicPropertyRegistry registry) {
+        // Ensure forward slashes for JDBC URL on Windows.
+        String normalizedPath = DB_FILE_PATH.replace('\\', '/');
+        registry.add("spring.datasource.url", () -> "jdbc:sqlite:" + normalizedPath);
+        registry.add("spring.datasource.driver-class-name", () -> "org.sqlite.JDBC");
+
+        registry.add("spring.sql.init.mode", () -> "always");
+        registry.add("spring.sql.init.schema-locations", () -> "classpath:schema.sql");
+
+        // Avoid scheduler side-effects during tests.
+        registry.add("spring.task.scheduling.enabled", () -> "false");
+    }
 
     @Autowired
-    private BidRepository bidRepository;
+    private BidDAO bidDAO;
 
-    private Bid bid1;
-    private Bid bid2;
-    private Bid bid3;
+    @Autowired
+    private AuctionDAO auctionDAO;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     @BeforeEach
-    void setUp() {
-        // Create bid by first bidder
-        bid1 = new Bid();
-        bid1.setAuctionId("AUC001");
-        bid1.setBidderId("BUYER001");
-        bid1.setBidAmount(BigDecimal.valueOf(100.0));
-        bid1.setCreatedAt(LocalDateTime.now().minusHours(2));
-        
-        // Create second bid by different bidder (higher amount)
-        bid2 = new Bid();
-        bid2.setAuctionId("AUC001");
-        bid2.setBidderId("BUYER002");
-        bid2.setBidAmount(BigDecimal.valueOf(150.0));
-        bid2.setCreatedAt(LocalDateTime.now().minusHours(1));
-        
-        // Create third bid (highest)
-        bid3 = new Bid();
-        bid3.setAuctionId("AUC001");
-        bid3.setBidderId("BUYER003");
-        bid3.setBidAmount(BigDecimal.valueOf(200.0));
-        bid3.setCreatedAt(LocalDateTime.now());
-        
-        entityManager.persist(bid1);
-        entityManager.persist(bid2);
-        entityManager.persist(bid3);
-        entityManager.flush();
+    void cleanDatabase() {
+        // Keep this order because bids reference auctions.
+        jdbcTemplate.update("DELETE FROM bids");
+        jdbcTemplate.update("DELETE FROM auctions");
+    }
+
+    private Auction createAuction(String auctionId) {
+        Auction auction = new Auction();
+        auction.setAuctionId(auctionId);
+        auction.setItemId("ITEM_" + auctionId);
+        auction.setSellerId("SELLER_" + auctionId);
+        auction.setStartTime(LocalDateTime.now().minusHours(1));
+        auction.setEndTime(LocalDateTime.now().plusHours(1));
+        auction.setStatus(AuctionStatus.ACTIVE);
+        auction.setReservePrice(BigDecimal.valueOf(10.00));
+        auction.setCurrentHighestBid(BigDecimal.ZERO);
+        auction.setCurrentHighestBidderId(null);
+        auction.setWinnerId(null);
+        return auctionDAO.createAuction(auction);
+    }
+
+    private Bid createBid(String bidId, String auctionId, String bidderId, BigDecimal bidAmount, LocalDateTime bidTimestamp) {
+        Bid bid = new Bid();
+        bid.setBidId(bidId);
+        bid.setAuctionId(auctionId);
+        bid.setBidderId(bidderId);
+        bid.setBidAmount(bidAmount);
+        bid.setBidTimestamp(bidTimestamp);
+        return bidDAO.createBid(bid);
     }
 
     @Test
-    @DisplayName("findByAuctionId - Returns all bids for auction")
-    void testFindByAuctionId_ReturnsAllAuctionBids() {
-        // Act
-        List<Bid> result = bidRepository.findByAuctionId("AUC001");
+    @DisplayName("findByAuctionId - returns bids ordered by newest timestamp")
+    void testFindByAuctionId_ReturnsBidsInDescendingTimestampOrder() {
+        String auctionId = "AUC_TEST_BIDS";
+        createAuction(auctionId);
 
-        // Assert
+        LocalDateTime t1 = LocalDateTime.of(2026, 3, 1, 10, 0, 0);
+        LocalDateTime t2 = LocalDateTime.of(2026, 3, 1, 10, 5, 0);
+        LocalDateTime t3 = LocalDateTime.of(2026, 3, 1, 10, 10, 0);
+
+        createBid("BID_1", auctionId, "BUYER_1", BigDecimal.valueOf(100.00), t1);
+        createBid("BID_2", auctionId, "BUYER_2", BigDecimal.valueOf(200.00), t3); // newest
+        createBid("BID_3", auctionId, "BUYER_3", BigDecimal.valueOf(150.00), t2);
+
+        List<Bid> result = bidDAO.findByAuctionId(auctionId);
         assertNotNull(result);
         assertEquals(3, result.size());
-        result.forEach(bid -> assertEquals("AUC001", bid.getAuctionId()));
+
+        assertEquals("BID_2", result.get(0).getBidId());
+        assertEquals("BID_3", result.get(1).getBidId());
+        assertEquals("BID_1", result.get(2).getBidId());
     }
 
     @Test
-    @DisplayName("findByAuctionId - Returns empty list for non-existent auction")
-    void testFindByAuctionId_NoAuction_ReturnsEmptyList() {
-        // Act
-        List<Bid> result = bidRepository.findByAuctionId("NONEXISTENT");
+    @DisplayName("findByAuctionId - empty list for auction with no bids")
+    void testFindByAuctionId_NoBids_ReturnsEmptyList() {
+        String auctionId = "AUC_TEST_EMPTY";
+        createAuction(auctionId);
 
-        // Assert
+        List<Bid> result = bidDAO.findByAuctionId(auctionId);
         assertNotNull(result);
-        assertEquals(0, result.size());
+        assertTrue(result.isEmpty());
     }
 
     @Test
-    @DisplayName("findByAuctionIdOrderByBidAmountDesc - Returns bids in descending order")
-    void testFindByAuctionIdOrderByBidAmountDesc_ReturnsBidsInOrder() {
-        // Act
-        List<Bid> result = bidRepository.findByAuctionIdOrderByBidAmountDesc("AUC001");
-
-        // Assert
-        assertEquals(3, result.size());
-        assertEquals(BigDecimal.valueOf(200.0), result.get(0).getBidAmount());
-        assertEquals(BigDecimal.valueOf(150.0), result.get(1).getBidAmount());
-        assertEquals(BigDecimal.valueOf(100.0), result.get(2).getBidAmount());
-    }
-
-    @Test
-    @DisplayName("findByAuctionIdOrderByCreatedAtAsc - Returns bids chronologically")
-    void testFindByAuctionIdOrderByCreatedAtAsc_ReturnsBidsInChronological() {
-        // Act
-        List<Bid> result = bidRepository.findByAuctionIdOrderByCreatedAtAsc("AUC001");
-
-        // Assert
-        assertEquals(3, result.size());
-        assertTrue(result.get(0).getCreatedAt().isBefore(result.get(1).getCreatedAt()));
-        assertTrue(result.get(1).getCreatedAt().isBefore(result.get(2).getCreatedAt()));
-    }
-
-    @Test
-    @DisplayName("findTopByAuctionIdOrderByBidAmountDesc - Returns highest bid")
-    void testFindHighestBid_ReturnsMaximumBid() {
-        // Act
-        Bid result = bidRepository.findTopByAuctionIdOrderByBidAmountDesc("AUC001");
-
-        // Assert
+    @DisplayName("findByAuctionId - empty list for unknown auction")
+    void testFindByAuctionId_UnknownAuction_ReturnsEmptyList() {
+        List<Bid> result = bidDAO.findByAuctionId("DOES_NOT_EXIST");
         assertNotNull(result);
-        assertEquals("BUYER003", result.getBidderId());
-        assertEquals(BigDecimal.valueOf(200.0), result.getBidAmount());
+        assertTrue(result.isEmpty());
     }
 
     @Test
-    @DisplayName("findTopByAuctionIdOrderByBidAmountDesc - No bids returns null")
-    void testFindHighestBid_NoBids_ReturnsNull() {
-        // Act
-        Bid result = bidRepository.findTopByAuctionIdOrderByBidAmountDesc("NONEXISTENT");
+    @DisplayName("findByBidderId - returns only bids for bidder ordered by newest timestamp")
+    void testFindByBidderId_ReturnsBidsForBidderInDescendingTimestampOrder() {
+        String auctionId1 = "AUC_TEST_B1";
+        String auctionId2 = "AUC_TEST_B2";
+        createAuction(auctionId1);
+        createAuction(auctionId2);
 
-        // Assert
-        assertNull(result);
-    }
+        LocalDateTime t1 = LocalDateTime.of(2026, 3, 2, 9, 0, 0);
+        LocalDateTime t2 = LocalDateTime.of(2026, 3, 2, 9, 30, 0);
 
-    @Test
-    @DisplayName("findByBidderId - Returns all bids by specific bidder")
-    void testFindByBidderId_ReturnsBidderBids() {
-        // Arrange - create bid for different auction by same bidder
-        Bid bid4 = new Bid();
-        bid4.setAuctionId("AUC002");
-        bid4.setBidderId("BUYER001");
-        bid4.setBidAmount(BigDecimal.valueOf(50.0));
-        bid4.setCreatedAt(LocalDateTime.now());
-        entityManager.persist(bid4);
-        entityManager.flush();
+        createBid("BID_B1_OLD", auctionId1, "BUYER_X", BigDecimal.valueOf(10.00), t1);
+        createBid("BID_B2_NEW", auctionId2, "BUYER_X", BigDecimal.valueOf(20.00), t2); // newest for BUYER_X
+        createBid("BID_OTHER", auctionId2, "BUYER_Y", BigDecimal.valueOf(30.00), t2);
 
-        // Act
-        List<Bid> result = bidRepository.findByBidderId("BUYER001");
-
-        // Assert
+        List<Bid> result = bidDAO.findByBidderId("BUYER_X");
+        assertNotNull(result);
         assertEquals(2, result.size());
-        result.forEach(bid -> assertEquals("BUYER001", bid.getBidderId()));
+        assertEquals("BID_B2_NEW", result.get(0).getBidId());
+        assertEquals("BID_B1_OLD", result.get(1).getBidId());
+        result.forEach(b -> assertEquals("BUYER_X", b.getBidderId()));
     }
 
     @Test
-    @DisplayName("findByBidderId - Empty list for bidder with no bids")
+    @DisplayName("findByBidderId - empty list for bidder with no bids")
     void testFindByBidderId_NoBids_ReturnsEmptyList() {
-        // Act
-        List<Bid> result = bidRepository.findByBidderId("NONEXISTENT");
+        createAuction("AUC_TEST_BIDDER_EMPTY");
 
-        // Assert
-        assertEquals(0, result.size());
-    }
-
-    @Test
-    @DisplayName("save - Persists new bid to database")
-    void testSave_NewBid_PersistsToDatabase() {
-        // Arrange
-        Bid newBid = new Bid();
-        newBid.setAuctionId("AUC001");
-        newBid.setBidderId("BUYER004");
-        newBid.setBidAmount(BigDecimal.valueOf(250.0));
-        newBid.setCreatedAt(LocalDateTime.now());
-
-        // Act
-        Bid saved = bidRepository.save(newBid);
-
-        // Assert
-        assertNotNull(saved.getBidId());
-        
-        // Verify
-        Optional<Bid> retrieved = bidRepository.findById(saved.getBidId());
-        assertTrue(retrieved.isPresent());
-        assertEquals("BUYER004", retrieved.get().getBidderId());
-    }
-
-    @Test
-    @DisplayName("delete - Removes bid from database")
-    void testDelete_ExistingBid_RemovesFromDatabase() {
-        // Arrange
-        String bidId = bid1.getBidId();
-
-        // Act
-        bidRepository.delete(bid1);
-
-        // Assert
-        Optional<Bid> result = bidRepository.findById(bidId);
+        List<Bid> result = bidDAO.findByBidderId("NO_SUCH_BUYER");
+        assertNotNull(result);
         assertTrue(result.isEmpty());
     }
 
     @Test
-    @DisplayName("countByAuctionId - Returns bid count for auction")
-    void testCountByAuctionId_ReturnsCorrectCount() {
-        // Act
-        long count = bidRepository.countByAuctionId("AUC001");
+    @DisplayName("findHighestBidByAuctionId - picks highest amount, then newest timestamp for ties")
+    void testFindHighestBidByAuctionId_ReturnsHighestAmountThenNewest() {
+        String auctionId = "AUC_TEST_HIGHEST";
+        createAuction(auctionId);
 
-        // Assert
-        assertEquals(3, count);
-    }
+        // Two bids with the same highest amount (200) - newest should win.
+        LocalDateTime t1 = LocalDateTime.of(2026, 3, 3, 12, 0, 0);
+        LocalDateTime t2 = LocalDateTime.of(2026, 3, 3, 12, 10, 0);
 
-    @Test
-    @DisplayName("countByAuctionId - Returns 0 for non-existent auction")
-    void testCountByAuctionId_NoAuction_ReturnsZero() {
-        // Act
-        long count = bidRepository.countByAuctionId("NONEXISTENT");
+        createBid("BID_LOW", auctionId, "BUYER_1", BigDecimal.valueOf(150.00), t1);
+        createBid("BID_HIGHEST_OLD", auctionId, "BUYER_2", BigDecimal.valueOf(200.00), t1);
+        createBid("BID_HIGHEST_NEW", auctionId, "BUYER_3", BigDecimal.valueOf(200.00), t2);
 
-        // Assert
-        assertEquals(0, count);
-    }
-
-    @Test
-    @DisplayName("findByAuctionId with Pageable - Supports pagination")
-    void testFindByAuctionId_WithPagination_ReturnsPagedBids() {
-        // Arrange
-        Pageable pageable = PageRequest.of(0, 2);
-
-        // Act
-        List<Bid> result = bidRepository.findByAuctionId("AUC001", pageable).getContent();
-
-        // Assert
-        assertEquals(2, result.size());
-    }
-
-    @Test
-    @DisplayName("findByAuctionIdAndBidAmountGreaterThan - Filters bids by amount")
-    void testFindByAuctionIdAndBidAmountGreaterThan_ReturnsBidsAboveThreshold() {
-        // Act
-        List<Bid> result = bidRepository.findByAuctionIdAndBidAmountGreaterThan(
-                "AUC001", 
-                BigDecimal.valueOf(125.0)
-        );
-
-        // Assert
-        assertEquals(2, result.size());
-        result.forEach(bid -> assertTrue(
-                bid.getBidAmount().compareTo(BigDecimal.valueOf(125.0)) > 0
-        ));
-    }
-
-    @Test
-    @DisplayName("findById - Returns optional with bid when exists")
-    void testFindById_ExistingBid_ReturnsBid() {
-        // Act
-        Optional<Bid> result = bidRepository.findById(bid1.getBidId());
-
-        // Assert
+        Optional<Bid> result = bidDAO.findHighestBidByAuctionId(auctionId);
         assertTrue(result.isPresent());
-        assertEquals("BUYER001", result.get().getBidderId());
+
+        Bid highest = result.get();
+        assertEquals("BUYER_3", highest.getBidderId());
+        assertEquals(0, highest.getBidAmount().compareTo(BigDecimal.valueOf(200.00)));
     }
 
     @Test
-    @DisplayName("findById - Returns empty optional when not found")
-    void testFindById_NonExistent_ReturnsEmpty() {
-        // Act
-        Optional<Bid> result = bidRepository.findById("NONEXISTENT");
+    @DisplayName("findHighestBidByAuctionId - empty optional for auctions with no bids")
+    void testFindHighestBidByAuctionId_NoBids_ReturnsEmptyOptional() {
+        String auctionId = "AUC_TEST_HIGHEST_EMPTY";
+        createAuction(auctionId);
 
-        // Assert
+        Optional<Bid> result = bidDAO.findHighestBidByAuctionId(auctionId);
         assertTrue(result.isEmpty());
+    }
+
+    @Test
+    @DisplayName("createBid + findById - persists and retrieves key bid fields")
+    void testCreateBidAndFindById_RoundTrip() {
+        String auctionId = "AUC_TEST_ROUNDTRIP";
+        createAuction(auctionId);
+
+        LocalDateTime ts = LocalDateTime.of(2026, 3, 4, 13, 0, 0);
+        Bid created = createBid("BID_RT", auctionId, "BUYER_RT", BigDecimal.valueOf(42.50), ts);
+
+        Optional<Bid> found = bidDAO.findById(created.getBidId());
+        assertTrue(found.isPresent());
+
+        Bid bid = found.get();
+        assertEquals(auctionId, bid.getAuctionId());
+        assertEquals("BUYER_RT", bid.getBidderId());
+        assertEquals(BigDecimal.valueOf(42.50), bid.getBidAmount());
+        assertEquals("BID_RT", bid.getBidId());
+    }
+
+    @Test
+    @DisplayName("findById - empty optional for unknown bid id")
+    void testFindById_UnknownBid_ReturnsEmptyOptional() {
+        Optional<Bid> result = bidDAO.findById("DOES_NOT_EXIST");
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
+    @DisplayName("deleteBidsByAuctionId - removes bids for a single auction")
+    void testDeleteBidsByAuctionId_RemovesOnlyTargetAuctionBids() {
+        String auctionId1 = "AUC_TEST_DELETE_1";
+        String auctionId2 = "AUC_TEST_DELETE_2";
+        createAuction(auctionId1);
+        createAuction(auctionId2);
+
+        createBid("BID_D1", auctionId1, "BUYER_1", BigDecimal.valueOf(10.00), LocalDateTime.now().minusMinutes(10));
+        createBid("BID_D2", auctionId1, "BUYER_1", BigDecimal.valueOf(20.00), LocalDateTime.now().minusMinutes(5));
+        createBid("BID_OTHER", auctionId2, "BUYER_2", BigDecimal.valueOf(30.00), LocalDateTime.now().minusMinutes(1));
+
+        int deleted = bidDAO.deleteBidsByAuctionId(auctionId1);
+        assertTrue(deleted >= 1);
+
+        assertTrue(bidDAO.findByAuctionId(auctionId1).isEmpty());
+        assertEquals(1, bidDAO.findByAuctionId(auctionId2).size());
+    }
+
+    @Test
+    @DisplayName("getBidCount - returns correct number of bids for an auction")
+    void testGetBidCount_ReturnsCorrectCount() {
+        String auctionId = "AUC_TEST_COUNT";
+        createAuction(auctionId);
+
+        createBid("BID_C1", auctionId, "BUYER_1", BigDecimal.valueOf(1.00), LocalDateTime.now().minusMinutes(10));
+        createBid("BID_C2", auctionId, "BUYER_2", BigDecimal.valueOf(2.00), LocalDateTime.now().minusMinutes(5));
+        createBid("BID_C3", auctionId, "BUYER_3", BigDecimal.valueOf(3.00), LocalDateTime.now().minusMinutes(1));
+
+        assertEquals(3, bidDAO.getBidCount(auctionId));
+        assertEquals(0, bidDAO.getBidCount("DOES_NOT_EXIST"));
     }
 }
+
