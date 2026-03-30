@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import ModuleHeader from "../../../shared/components/ModuleHeader";
 import StatusBanner from "../../../shared/components/StatusBanner";
 import { catalogueApi } from "../api/catalogueApi";
@@ -31,20 +32,22 @@ export default function CatalogueBrowsePage() {
     };
   }, []);
 
+  // Only show items that are currently active (status === 'ACTIVE' or similar)
+  const activeItems = useMemo(() => items.filter(item => !item.status || item.status === 'ACTIVE'), [items]);
   const filteredItems = useMemo(() => {
     const term = keyword.trim().toLowerCase();
-    if (!term) return items;
-    return items.filter((item) => {
+    if (!term) return activeItems;
+    return activeItems.filter((item) => {
       const haystack = `${item.name || ""} ${item.description || ""}`.toLowerCase();
       return haystack.includes(term);
     });
-  }, [items, keyword]);
+  }, [activeItems, keyword]);
 
   return (
     <div className="page">
       <ModuleHeader
         title="Browse catalogue"
-        description="Catalogue owner owns item discovery. Search is currently client-side because the gateway does not forward a keyword parameter yet."
+        description="Catalogue owner owns item discovery. Search is currently client-side because the gateway does not forward a keyword parameter yet. Only active items are shown."
         owner="Catalogue owner"
       />
 
@@ -57,6 +60,9 @@ export default function CatalogueBrowsePage() {
             placeholder="Search by name or description"
           />
         </label>
+        <div style={{ marginTop: "1rem" }}>
+          <Link className="btn" to="/catalogue/create">List a new item</Link>
+        </div>
       </div>
 
       <StatusBanner error={error} notice={!error ? `Showing ${filteredItems.length} item(s).` : ""} />

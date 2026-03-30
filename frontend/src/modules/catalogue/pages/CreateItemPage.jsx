@@ -11,7 +11,8 @@ const initialForm = {
   description: "",
   startPrice: "",
   shippingPrice: "",
-  durationHours: ""
+  durationHours: "",
+  auctionType: ""
 };
 
 export default function CreateItemPage() {
@@ -33,7 +34,8 @@ export default function CreateItemPage() {
         ...form,
         startPrice: Number(form.startPrice),
         shippingPrice: Number(form.shippingPrice),
-        durationHours: Number(form.durationHours)
+        durationHours: Number(form.durationHours),
+        auctionType: form.auctionType
       };
 
       const data = await catalogueApi.createItem(payload, token);
@@ -59,6 +61,9 @@ export default function CreateItemPage() {
       <StatusBanner error={error} success={success} />
       <ItemForm form={form} setForm={setForm} onSubmit={handleSubmit} loading={loading} />
       {response && <JsonViewer title="Create item response" data={response} />}
+      <div style={{ marginTop: "1rem" }}>
+        <a className="btn secondary" href="/catalogue">Back to catalogue</a>
+      </div>
     </div>
   );
 }

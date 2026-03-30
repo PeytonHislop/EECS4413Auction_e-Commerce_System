@@ -49,6 +49,7 @@ export default function ItemDetailsPage() {
               <span>Shipping: {formatCurrency(item.shippingPrice)}</span>
               <span>Duration: {item.durationHours} hour(s)</span>
               <span>End date: {formatDate(item.endDate)}</span>
+              <span>Auction type: {item.auctionType || "—"}</span>
               <span>Status: {item.status || "—"}</span>
               <span>Seller ID: {item.sellerId || "—"}</span>
             </div>
@@ -57,9 +58,12 @@ export default function ItemDetailsPage() {
               <Link className="btn secondary" to="/catalogue">
                 Back to catalogue
               </Link>
-              <Link className="btn" to="/auctions/create">
-                Create auction for item
-              </Link>
+              {/* Only show create auction if item is not already in auction (optional, adjust as needed) */}
+              {item.status === 'ACTIVE' && (
+                <Link className="btn" to="/auctions/create">
+                  Create auction for item
+                </Link>
+              )}
             </div>
           </div>
 
