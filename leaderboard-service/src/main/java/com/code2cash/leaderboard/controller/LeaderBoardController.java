@@ -135,6 +135,29 @@ public class LeaderboardController {
     }
     
     /**
+     * POST /api/leaderboard/bids
+     * Add a new bid entry to the leaderboard (called by auction service)
+     */
+    @PostMapping("/bids")
+    public ResponseEntity<?> addBidEntry(@RequestBody Map<String, Object> bidData) {
+        try {
+            String auctionId = (String) bidData.get("auctionId");
+            String itemId = (String) bidData.get("itemId");
+            String bidderId = (String) bidData.get("bidderId");
+            String bidderName = (String) bidData.get("bidderName");
+            java.math.BigDecimal bidAmount = new java.math.BigDecimal(bidData.get("bidAmount").toString());
+            String sellerId = (String) bidData.get("sellerId");
+            String sellerName = (String) bidData.get("sellerName");
+            
+            leaderboardService.addBidEntry(auctionId, itemId, bidderId, bidderName, bidAmount, sellerId, sellerName);
+            
+            return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            return ResponseEntity.status(400).body(createErrorResponse(e.getMessage()));
+        }
+    }
+    
+    /**
      * Helper method to create error response
      */
     private Map<String, String> createErrorResponse(String message) {

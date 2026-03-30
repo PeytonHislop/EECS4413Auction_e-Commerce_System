@@ -60,6 +60,39 @@ export default function AuctionDetailsPage() {
     };
   }, [auctionId]);
 
+  // WebSocket subscription for real-time bid updates
+  useEffect(() => {
+    if (!auctionId) return;
+
+    // Connect to WebSocket
+    auctionApi.connectWebSocket(
+      () => {
+        console.log('WebSocket connected, subscribing to auction bids');
+        // Subscribe to bid updates for this auction
+        auctionApi.subscribeToAuctionBids(auctionId, (bidUpdate) => {
+          console.log('Received bid update:', bidUpdate);
+          // Update the auction's current highest bid
+          setAuction(prev => prev ? {
+            ...prev,
+            currentHighestBid: bidUpdate.bidAmount,
+            currentHighestBidderId: bidUpdate.bidderId
+          } : prev);
+          // Reload bid history and counts
+          loadAuction();
+        });
+      },
+      (error) => {
+        console.error('WebSocket connection error:', error);
+      }
+    );
+
+    // Cleanup on unmount
+    return () => {
+      auctionApi.unsubscribeFromAuctionBids(auctionId);
+      auctionApi.disconnectWebSocket();
+    };
+  }, [auctionId]);
+  
   async function handlePlaceBid(event) {
     event.preventDefault();
     setError("");
@@ -74,7 +107,8 @@ export default function AuctionDetailsPage() {
       const result = await auctionApi.placeBid(auctionId, payload, token);
       setSuccess(result.message || "Bid placed successfully.");
       setBidForm((prev) => ({ ...prev, bidAmount: "" }));
-      await loadAuction();
+      // await loadAuction();
+      // No need to reload manually, WebSocket will update
     } catch (err) {
       setError(err.message);
     } finally {
