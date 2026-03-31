@@ -53,7 +53,7 @@ class CatalogueFacadeTest {
         validItemDTO.setStartPrice(100.0);
         validItemDTO.setShippingPrice(10.0);
         validItemDTO.setDurationHours(24);
-        validItemDTO.setSellerId(123L);
+        validItemDTO.setSellerId("123");
 
         mockItem = new Item();
         mockItem.setId(1L);
@@ -62,7 +62,7 @@ class CatalogueFacadeTest {
         mockItem.setStartPrice(100.0);
         mockItem.setShippingPrice(10.0);
         mockItem.setDurationHours(24);
-        mockItem.setSellerId(123L);
+        mockItem.setSellerId("123");
         mockItem.setStatus("ACTIVE");
         mockItem.setEndDate(LocalDateTime.now().plusHours(24));
     }
@@ -261,7 +261,7 @@ class CatalogueFacadeTest {
         longDurationDTO.setStartPrice(100.0);
         longDurationDTO.setShippingPrice(10.0);
         longDurationDTO.setDurationHours(48);
-        longDurationDTO.setSellerId(123L);
+        longDurationDTO.setSellerId("123");
 
         Item longItem = new Item();
         longItem.setId(2L);
