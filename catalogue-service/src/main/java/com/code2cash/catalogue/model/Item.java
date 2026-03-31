@@ -1,7 +1,13 @@
 package com.code2cash.catalogue.model;
 
-import jakarta.persistence.*;
 import java.time.LocalDateTime;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
 
 @Entity
 @Table(name = "catalogue_items")
@@ -31,8 +37,8 @@ public class Item {
     // Status: ACTIVE, EXPIRED, SOLD
     private String status;
 
-    // Link to the Seller (UserId from IAM service)
-    private Long sellerId;
+    // Link to the Seller (UserId from IAM service - UUID String)
+    private String sellerId;
 
     // Constructors
     public Item() {
@@ -107,11 +113,11 @@ public class Item {
         this.status = status;
     }
 
-    public Long getSellerId() {
+    public String getSellerId() {
         return sellerId;
     }
 
-    public void setSellerId(Long sellerId) {
+    public void setSellerId(String sellerId) {
         this.sellerId = sellerId;
     }
 

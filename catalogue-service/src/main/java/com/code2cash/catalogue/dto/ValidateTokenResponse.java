@@ -3,7 +3,7 @@ package com.code2cash.catalogue.dto;
 public class ValidateTokenResponse {
 
     private boolean valid;
-    private Long userId;
+    private String userId;
     private String username;
     private String role;
 
@@ -11,7 +11,7 @@ public class ValidateTokenResponse {
     public ValidateTokenResponse() {
     }
 
-    public ValidateTokenResponse(boolean valid, Long userId, String username, String role) {
+    public ValidateTokenResponse(boolean valid, String userId, String username, String role) {
         this.valid = valid;
         this.userId = userId;
         this.username = username;
@@ -27,11 +27,11 @@ public class ValidateTokenResponse {
         this.valid = valid;
     }
 
-    public Long getUserId() {
+    public String getUserId() {
         return userId;
     }
 
-    public void setUserId(Long userId) {
+    public void setUserId(String userId) {
         this.userId = userId;
     }
 

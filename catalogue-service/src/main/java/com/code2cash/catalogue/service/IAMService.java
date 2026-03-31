@@ -4,13 +4,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
 import com.code2cash.catalogue.config.IAMServiceConfig;
-import com.code2cash.catalogue.dto.AuthorizeRequest;
+import com.code2cash.catalogue.dto.AuthorizeResponse;
 import com.code2cash.catalogue.dto.ValidateTokenResponse;
 
 @Service
@@ -24,7 +23,7 @@ public class IAMService {
 
     /**
      * Validates JWT token and returns user information
-     * Calls: /auth/validate
+     * Calls: POST /auth/validate
      */
     public ValidateTokenResponse validateToken(String token) {
         try {
@@ -36,7 +35,7 @@ public class IAMService {
             
             ResponseEntity<ValidateTokenResponse> response = restTemplate.exchange(
                 url,
-                HttpMethod.GET,
+                HttpMethod.POST,
                 entity,
                 ValidateTokenResponse.class
             );
@@ -50,27 +49,25 @@ public class IAMService {
 
     /**
      * Checks if user has specific role authorization
-     * Calls: /auth/authorize
+     * Calls: GET /auth/authorize?requiredRole={role}
      */
     public boolean authorizeRole(String token, String requiredRole) {
         try {
-            String url = iamServiceConfig.getIamServiceUrl() + "/auth/authorize";
+            String url = iamServiceConfig.getIamServiceUrl() + "/auth/authorize?requiredRole=" + requiredRole;
             
             HttpHeaders headers = new HttpHeaders();
             headers.set("Authorization", token);
-            headers.setContentType(MediaType.APPLICATION_JSON);
+            HttpEntity<Void> entity = new HttpEntity<>(headers);
             
-            AuthorizeRequest request = new AuthorizeRequest(requiredRole);
-            HttpEntity<AuthorizeRequest> entity = new HttpEntity<>(request, headers);
-            
-            ResponseEntity<Boolean> response = restTemplate.exchange(
+            ResponseEntity<AuthorizeResponse> response = restTemplate.exchange(
                 url,
-                HttpMethod.POST,
+                HttpMethod.GET,
                 entity,
-                Boolean.class
+                AuthorizeResponse.class
             );
             
-            return Boolean.TRUE.equals(response.getBody());
+            AuthorizeResponse body = response.getBody();
+            return body != null && body.isAuthorized();
         } catch (Exception e) {
             // Authorization failed
             return false;
@@ -81,7 +78,7 @@ public class IAMService {
      * Gets user information by userId
      * Calls: /users/{userId}
      */
-    public Object getUserInfo(Long userId) {
+    public Object getUserInfo(String userId) {
         try {
             String url = iamServiceConfig.getIamServiceUrl() + "/users/" + userId;
             
