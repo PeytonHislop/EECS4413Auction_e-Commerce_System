@@ -1,6 +1,7 @@
 package com.code2cash.leaderboard.controller;
 
 import com.code2cash.leaderboard.dto.LeaderboardEntryResponse;
+import com.code2cash.leaderboard.dto.TopBidderResponse;
 import com.code2cash.leaderboard.service.LeaderboardService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -14,6 +15,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -150,5 +152,56 @@ public class LeaderboardControllerTest {
                 .andExpect(jsonPath("$.count").value(1));
 
         verify(leaderboardService).getWeeklyLeaderboard(any(LocalDateTime.class));
+    }
+
+    @Test
+    @DisplayName("GET /api/leaderboard/highest - Returns highest bid for period")
+    void testGetHighestBidByPeriod_ReturnsEntry() throws Exception {
+        when(leaderboardService.getHighestBidForPeriod("WEEK")).thenReturn(Optional.of(mockEntry));
+
+        mockMvc.perform(get("/api/leaderboard/highest").param("period", "WEEK"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.period").value("WEEK"))
+                .andExpect(jsonPath("$.hasEntry").value(true))
+                .andExpect(jsonPath("$.entry.bidAmount").value(500.0));
+
+        verify(leaderboardService).getHighestBidForPeriod("WEEK");
+    }
+
+    @Test
+    @DisplayName("GET /api/leaderboard/highest - Invalid period returns 400")
+    void testGetHighestBidByPeriod_Invalid_ReturnsBadRequest() throws Exception {
+        when(leaderboardService.getHighestBidForPeriod("MONTH"))
+                .thenThrow(new IllegalArgumentException("Unsupported period"));
+
+        mockMvc.perform(get("/api/leaderboard/highest").param("period", "MONTH"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").exists());
+    }
+
+    @Test
+    @DisplayName("GET /api/leaderboard/top-bidders - Returns top bidder entries")
+    void testGetTopBidders_ReturnsEntries() throws Exception {
+        List<TopBidderResponse> entries = Arrays.asList(
+                new TopBidderResponse(1L, "BUYER001", "John", 3L, BigDecimal.valueOf(500), BigDecimal.valueOf(1200))
+        );
+        when(leaderboardService.getTopBiddersForPeriod("WEEK", 5)).thenReturn(entries);
+
+        mockMvc.perform(get("/api/leaderboard/top-bidders").param("period", "WEEK").param("limit", "5"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.count").value(1))
+                .andExpect(jsonPath("$.entries[0].bidderId").value("BUYER001"))
+                .andExpect(jsonPath("$.entries[0].highestBid").value(500));
+    }
+
+    @Test
+    @DisplayName("GET /api/leaderboard/top-bidders - Invalid input returns 400")
+    void testGetTopBidders_Invalid_ReturnsBadRequest() throws Exception {
+        when(leaderboardService.getTopBiddersForPeriod("WEEK", 0))
+                .thenThrow(new IllegalArgumentException("Limit must be greater than 0."));
+
+        mockMvc.perform(get("/api/leaderboard/top-bidders").param("period", "WEEK").param("limit", "0"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").exists());
     }
 }
