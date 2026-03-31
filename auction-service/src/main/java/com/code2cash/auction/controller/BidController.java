@@ -13,7 +13,9 @@ import jakarta.validation.Valid;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import jakarta.validation.Valid;
+
+import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.linkTo;
+import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.methodOn;
 
 /**
  * REST Controller for Bid endpoints
@@ -41,6 +43,7 @@ public class BidController {
         String token = extractToken(authHeader);
         
         BidResponse response = bidService.placeBid(auctionId, request, token);
+        addBidLinks(response);
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
     
@@ -74,12 +77,12 @@ public class BidController {
      * GET /api/auctions/{auctionId}/bid-count
      */
     @GetMapping("/{auctionId}/bid-count")
-    public ResponseEntity<Map<String, Integer>> getBidCount(
+    public ResponseEntity<Map<String, Object>> getBidCount(
             @PathVariable("auctionId") String auctionId) {
         int count = bidService.getBidCount(auctionId);
         
-        Map<String, Integer> response = new HashMap<>();
-        response.put("auctionId", auctionId.hashCode());
+        Map<String, Object> response = new HashMap<>();
+        response.put("auctionId", auctionId);
         response.put("bidCount", count);
         
         return ResponseEntity.ok(response);
@@ -103,5 +106,21 @@ public class BidController {
             return authHeader.substring(7);
         }
         return authHeader;
+    }
+
+    private void addBidLinks(BidResponse response) {
+        if (response == null || response.getAuctionId() == null || response.getBidId() == null) {
+            return;
+        }
+        String auctionId = response.getAuctionId();
+        String bidderId = response.getBidderId();
+        response.add(
+                linkTo(methodOn(BidController.class).getBidHistory(auctionId)).withRel("auctionBids"),
+                linkTo(methodOn(BidController.class).getHighestBid(auctionId)).withRel("auctionHighestBid"),
+                linkTo(methodOn(BidController.class).getBidCount(auctionId)).withRel("auctionBidCount")
+        );
+        if (bidderId != null && !bidderId.isBlank()) {
+            response.add(linkTo(methodOn(BidController.class).getBidsByBidder(bidderId)).withRel("bidderBids"));
+        }
     }
 }
