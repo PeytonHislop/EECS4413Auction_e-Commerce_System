@@ -1,8 +1,10 @@
 package com.code2cash.leaderboard.controller;
 
 import com.code2cash.leaderboard.dto.LeaderboardEntryResponse;
+import com.code2cash.leaderboard.dto.TopBidderResponse;
 import com.code2cash.leaderboard.service.LeaderboardService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.hateoas.Link;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -10,6 +12,9 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.linkTo;
+import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.methodOn;
 
 /**
  * REST Controller for Leaderboard endpoints
@@ -31,6 +36,7 @@ public class LeaderboardController {
     public ResponseEntity<?> getWeeklyLeaderboard() {
         try {
             List<LeaderboardEntryResponse> entries = leaderboardService.getWeeklyLeaderboard();
+            entries.forEach(this::addEntryLinks);
             
             Map<String, Object> response = new HashMap<>();
             response.put("count", entries.size());
@@ -58,6 +64,7 @@ public class LeaderboardController {
                     .withDayOfYear(week * 7 - 6);  // Simplified week calculation
             
             List<LeaderboardEntryResponse> entries = leaderboardService.getWeeklyLeaderboard(weekStart);
+            entries.forEach(this::addEntryLinks);
             
             Map<String, Object> response = new HashMap<>();
             response.put("year", year);
@@ -80,6 +87,7 @@ public class LeaderboardController {
             @PathVariable String bidderId) {
         try {
             List<LeaderboardEntryResponse> entries = leaderboardService.getBidderWeeklyStats(bidderId);
+            entries.forEach(this::addEntryLinks);
             
             Map<String, Object> response = new HashMap<>();
             response.put("bidderId", bidderId);
@@ -110,6 +118,7 @@ public class LeaderboardController {
         try {
             long bidCount = leaderboardService.getWeeklyBidCount();
             List<LeaderboardEntryResponse> topBids = leaderboardService.getWeeklyLeaderboard();
+            topBids.forEach(this::addEntryLinks);
             
             Map<String, Object> response = new HashMap<>();
             response.put("weeklyBidCount", bidCount);
@@ -129,6 +138,54 @@ public class LeaderboardController {
             response.put("generatedAt", LocalDateTime.now());
             
             return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(createErrorResponse(e.getMessage()));
+        }
+    }
+
+    /**
+     * GET /api/leaderboard/highest?period=DAY|WEEK|YEAR
+     * Get the highest bid entry for a selected period.
+     */
+    @GetMapping("/highest")
+    public ResponseEntity<?> getHighestBidByPeriod(@RequestParam(defaultValue = "WEEK") String period) {
+        try {
+            java.util.Optional<LeaderboardEntryResponse> highest = leaderboardService.getHighestBidForPeriod(period);
+            highest.ifPresent(this::addEntryLinks);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("period", period.toUpperCase());
+            response.put("hasEntry", highest.isPresent());
+            response.put("entry", highest.orElse(null));
+            response.put("generatedAt", LocalDateTime.now());
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(400).body(createErrorResponse(e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(createErrorResponse(e.getMessage()));
+        }
+    }
+
+    /**
+     * GET /api/leaderboard/top-bidders?period=DAY|WEEK|YEAR&limit=5
+     */
+    @GetMapping("/top-bidders")
+    public ResponseEntity<?> getTopBidders(
+            @RequestParam(defaultValue = "WEEK") String period,
+            @RequestParam(defaultValue = "5") int limit) {
+        try {
+            List<TopBidderResponse> bidders = leaderboardService.getTopBiddersForPeriod(period, limit);
+            bidders.forEach(this::addTopBidderLinks);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("period", period.toUpperCase());
+            response.put("limit", limit);
+            response.put("count", bidders.size());
+            response.put("entries", bidders);
+            response.put("generatedAt", LocalDateTime.now());
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(400).body(createErrorResponse(e.getMessage()));
         } catch (Exception e) {
             return ResponseEntity.status(500).body(createErrorResponse(e.getMessage()));
         }
@@ -164,5 +221,19 @@ public class LeaderboardController {
         Map<String, String> error = new HashMap<>();
         error.put("error", message);
         return error;
+    }
+
+    private void addEntryLinks(LeaderboardEntryResponse entry) {
+        Link self = linkTo(methodOn(LeaderboardController.class)
+                .getBidderWeeklyStats(entry.getBidderId())).withRel("bidderStats");
+        Link highestWeek = linkTo(methodOn(LeaderboardController.class)
+                .getHighestBidByPeriod("WEEK")).withRel("highestThisWeek");
+        entry.add(self, highestWeek);
+    }
+
+    private void addTopBidderLinks(TopBidderResponse bidder) {
+        Link bidderStats = linkTo(methodOn(LeaderboardController.class)
+                .getBidderWeeklyStats(bidder.getBidderId())).withRel("bidderStats");
+        bidder.add(bidderStats);
     }
 }
