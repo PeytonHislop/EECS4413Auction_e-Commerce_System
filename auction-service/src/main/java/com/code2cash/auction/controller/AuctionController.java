@@ -10,7 +10,9 @@ import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
 import java.util.List;
-import jakarta.validation.Valid;
+
+import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.linkTo;
+import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.methodOn;
 
 /**
  * REST Controller for Auction endpoints
@@ -37,6 +39,7 @@ public class AuctionController {
         String token = extractToken(authHeader);
         
         AuctionResponse response = auctionService.createAuction(request, token);
+        addAuctionLinks(response);
         return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
     
@@ -47,6 +50,7 @@ public class AuctionController {
     @GetMapping("/{id}")
     public ResponseEntity<AuctionResponse> getAuction(@PathVariable("id") String auctionId) {
         AuctionResponse response = auctionService.getAuction(auctionId);
+        addAuctionLinks(response);
         return ResponseEntity.ok(response);
     }
     
@@ -57,6 +61,7 @@ public class AuctionController {
     @GetMapping("/active")
     public ResponseEntity<List<AuctionResponse>> getActiveAuctions() {
         List<AuctionResponse> auctions = auctionService.getActiveAuctions();
+        auctions.forEach(this::addAuctionLinks);
         return ResponseEntity.ok(auctions);
     }
     
@@ -68,6 +73,7 @@ public class AuctionController {
     public ResponseEntity<List<AuctionResponse>> getSellerAuctions(
             @PathVariable("sellerId") String sellerId) {
         List<AuctionResponse> auctions = auctionService.getSellerAuctions(sellerId);
+        auctions.forEach(this::addAuctionLinks);
         return ResponseEntity.ok(auctions);
     }
     
@@ -78,6 +84,7 @@ public class AuctionController {
     @PutMapping("/{id}/close")
     public ResponseEntity<AuctionResponse> closeAuction(@PathVariable("id") String auctionId) {
         AuctionResponse response = auctionService.closeAuction(auctionId);
+        addAuctionLinks(response);
         return ResponseEntity.ok(response);
     }
     
@@ -99,5 +106,18 @@ public class AuctionController {
             return authHeader.substring(7);
         }
         return authHeader;
+    }
+
+    private void addAuctionLinks(AuctionResponse response) {
+        if (response == null || response.getAuctionId() == null) {
+            return;
+        }
+        String auctionId = response.getAuctionId();
+        response.add(
+                linkTo(methodOn(AuctionController.class).getAuction(auctionId)).withSelfRel(),
+                linkTo(methodOn(BidController.class).getBidHistory(auctionId)).withRel("bids"),
+                linkTo(methodOn(BidController.class).getHighestBid(auctionId)).withRel("highestBid"),
+                linkTo(methodOn(BidController.class).getBidCount(auctionId)).withRel("bidCount")
+        );
     }
 }
