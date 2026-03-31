@@ -1,6 +1,6 @@
-# EECS 4413 Auction e-Commerce System — Team 9: Code2Cash (Deliverable 2)
+# EECS 4413 Auction e-Commerce System — Team 9: Code2Cash (Deliverable 3)
 
-This repository contains the back-end services for the auction platform. For Deliverable 2, the system focuses on **back-end business logic services** and their REST interfaces, plus scripts/tests to demonstrate the main flows.
+This repository contains the back-end services and frontend for the auction platform. For Deliverable 3, the system focuses on service business logic, REST interfaces, and a gateway-first React UI that demonstrates the main flows end-to-end.
 
 > **Ports**
 - Gateway: `8080`
@@ -9,6 +9,7 @@ This repository contains the back-end services for the auction platform. For Del
 - Catalogue: `8083`
 - Payment: `8084`
 - Leaderboard: `8085`
+- Frontend (Vite): `5173`
 
 ---
 
@@ -21,7 +22,9 @@ EECS4413Auction_e-Commerce_System/
 ├── gateway-service/
 ├── auction-service/
 ├── catalogue-service/
+├── leaderboard-service/
 ├── payment-service/
+├── frontend/
 └── scripts/
 ```
 
@@ -29,7 +32,60 @@ EECS4413Auction_e-Commerce_System/
 
 ## Quick Start - Run All Services
 
-### 1) Run Gateway
+### 1) Run IAM
+From `iam-service/`:
+
+```bash
+mvn spring-boot:run
+```
+
+Default: `http://localhost:8081`
+
+### 2) Run Auction Service
+From `auction-service/`:
+
+```bash
+# Windows
+.\mvnw.cmd spring-boot:run
+
+# Mac/Linux
+./mvnw spring-boot:run
+```
+
+Default: `http://localhost:8082`
+
+### 3) Run Catalogue
+From `catalogue-service/`:
+
+```bash
+mvn spring-boot:run
+```
+
+Default: `http://localhost:8083`
+
+### 4) Run Payment
+From `payment-service/`:
+
+```bash
+mvn spring-boot:run
+```
+
+Default: `http://localhost:8084`
+
+### 5) Run Leaderboard
+From `leaderboard-service/`:
+
+```bash
+# Windows
+.\mvnw.cmd spring-boot:run
+
+# Mac/Linux
+./mvnw spring-boot:run
+```
+
+Default: `http://localhost:8085`
+
+### 6) Run Gateway
 From `gateway-service/`:
 
 ```bash
@@ -45,47 +101,18 @@ downstream.iam.base-url=http://localhost:8081
 downstream.auction.base-url=http://localhost:8082
 downstream.catalogue.base-url=http://localhost:8083
 downstream.payment.base-url=http://localhost:8084
+downstream.leaderboard.base-url=http://localhost:8085
 ```
 
-### 2) Run IAM
-From `iam-service/`:
+### 7) Run Frontend
+From `frontend/`:
 
 ```bash
-mvn spring-boot:run
+npm install
+npm run dev
 ```
 
-Default: `http://localhost:8081`
-
-### 3) Run Auction Service
-From `auction-service/`:
-
-```bash
-# Windows
-.\mvnw.cmd spring-boot:run
-
-# Mac/Linux
-./mvnw spring-boot:run
-```
-
-Default: `http://localhost:8082`
-
-### 4) Run Catalogue
-From `catalogue-service/`:
-
-```bash
-mvn spring-boot:run
-```
-
-Default: `http://localhost:8083`
-
-### 5) Run Payment
-From `payment-service/`:
-
-```bash
-mvn spring-boot:run
-```
-
-Default: `http://localhost:8084`
+Default: `http://localhost:5173`
 
 ---
 
@@ -215,14 +242,16 @@ POST /api/auctions/close-expired               # Batch close expired (ADMIN role
 - **Bid Validation** - Ensures bids are strictly higher than current highest bid
 - **JWT Authentication** - Integrates with IAM service for token validation
 - **Role-Based Authorization** - SELLER can create, BUYER can bid, ADMIN can close
+- **WebSocket Bid Updates** - Publishes bid events to `/topic/auction/{auctionId}/bids`
+- **Leaderboard Integration** - On successful bids, posts entries to Leaderboard service
 - **Database Persistence** - SQLite with schema auto-initialization
 - **Sample Data** - 3 auctions and 5 bids pre-populated for testing
 
 ### Test Cases Implemented
-- **TC-AUC-01**: Place valid bid (higher than current highest) ✅
-- **TC-AUC-02**: Reject bid lower than current highest ✅
-- **TC-AUC-03**: Create auction with seller authentication ✅
-- **TC-AUC-04**: Close auction and determine winner based on reserve price ✅
+- **TC-AUC-01**: Place valid bid (higher than current highest) 
+- **TC-AUC-02**: Reject bid lower than current highest 
+- **TC-AUC-03**: Create auction with seller authentication 
+- **TC-AUC-04**: Close auction and determine winner based on reserve price 
 
 ### Testing Auction Service
 
@@ -321,6 +350,9 @@ The database will auto-recreate with sample data.
 **Payment Service (Port 8084):**
 - `POST /payments` - Initiates payment when auction closes with winner *(currently mocked)*
 
+**Leaderboard Service (Port 8085):**
+- `POST /api/leaderboard/bids` - Stores bid entries for leaderboard ranking
+
 ### Gateway Integration
 Gateway forwards `/api/auctions/*` to Auction Service via `AuctionClient` and `AuctionGatewayController`.
 
@@ -345,13 +377,14 @@ For detailed documentation, see:
 ## Gateway Service
 
 **Service folder:** `gateway-service/`  
-**Purpose:** façade/entry point that forwards `/api/...` requests to downstream services. Currently forwards IAM and Auction routes; designed to expand for Catalogue/Payment.
+**Purpose:** façade/entry point that forwards `/api/...` requests to downstream services.
 
 ### Current supported routes
 - `/api/auth/*` → IAM Service (Port 8081)
 - `/api/users/*` → IAM Service (Port 8081)
 - `/api/auctions/*` → Auction Service (Port 8082)
 - `/api/items/*` → Catalogue Service (Port 8083)
+- `/api/leaderboard/*` → Leaderboard Service (Port 8085)
 - `/api/health` → Gateway health check
 
 ### Gateway Configuration
@@ -366,7 +399,30 @@ downstream.iam.base-url=http://localhost:8081
 downstream.auction.base-url=http://localhost:8082
 downstream.catalogue.base-url=http://localhost:8083
 downstream.payment.base-url=http://localhost:8084
+downstream.leaderboard.base-url=http://localhost:8085
 ```
+
+---
+
+## Leaderboard Service
+
+**Service folder:** `leaderboard-service/`  
+**Purpose:** weekly leaderboard ranking, bidder stats, period-based highest bid and top bidder aggregates.
+
+### Key endpoints
+Base: `http://localhost:8085`
+
+- `GET /api/leaderboard` - Current weekly leaderboard entries
+- `GET /api/leaderboard/stats` - Weekly aggregate stats
+- `GET /api/leaderboard/bidder/{bidderId}` - Bidder weekly records
+- `GET /api/leaderboard/highest?period=DAY|WEEK|YEAR` - Highest bid for period
+- `GET /api/leaderboard/top-bidders?period=DAY|WEEK|YEAR&limit=5` - Top bidders by period
+- `POST /api/leaderboard/bids` - Ingest bid entry (called by auction-service)
+
+### Notes
+- For stable demo data across restarts, leaderboard uses file-based H2:
+  - `spring.datasource.url=jdbc:h2:file:./data/leaderboarddb;AUTO_SERVER=TRUE`
+- Start leaderboard before placing bids so auction-service can forward entries without connection errors.
 
 ---
 
