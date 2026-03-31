@@ -1,13 +1,14 @@
 package com.code2cash.auction.dto;
 
 import com.code2cash.auction.model.AuctionStatus;
+import org.springframework.hateoas.RepresentationModel;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
  * DTO for auction response
  */
-public class AuctionResponse {
+public class AuctionResponse extends RepresentationModel<AuctionResponse> {
     
     private String auctionId;
     private String itemId;
