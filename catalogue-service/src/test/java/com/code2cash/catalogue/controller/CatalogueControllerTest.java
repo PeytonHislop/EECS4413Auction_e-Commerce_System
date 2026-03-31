@@ -70,7 +70,7 @@ class CatalogueControllerTest {
         mockItem.setStartPrice(100.0);
         mockItem.setShippingPrice(10.0);
         mockItem.setDurationHours(24);
-        mockItem.setSellerId(123L);
+        mockItem.setSellerId("123");
         mockItem.setStatus("ACTIVE");
         mockItem.setEndDate(LocalDateTime.now().plusHours(24));
     }
@@ -78,7 +78,7 @@ class CatalogueControllerTest {
     @Test
     @DisplayName("POST /api/catalogue/items - Create item with valid seller token")
     void testCreateItem_WithValidSellerToken_ReturnsCreatedItem() throws Exception {
-        ValidateTokenResponse tokenResponse = new ValidateTokenResponse(true, 123L, "seller1", "SELLER");
+        ValidateTokenResponse tokenResponse = new ValidateTokenResponse(true, "123", "seller1", "SELLER");
         when(iamService.validateToken(validToken)).thenReturn(tokenResponse);
         when(iamService.authorizeRole(validToken, "SELLER")).thenReturn(true);
         when(catalogueFacade.addItem(any(ItemDTO.class))).thenReturn(mockItem);
@@ -132,7 +132,7 @@ class CatalogueControllerTest {
     @Test
     @DisplayName("POST /api/catalogue/items - Return 403 for non-seller role")
     void testCreateItem_WithNonSellerRole_ReturnsForbidden() throws Exception {
-        ValidateTokenResponse tokenResponse = new ValidateTokenResponse(true, 456L, "buyer1", "BUYER");
+        ValidateTokenResponse tokenResponse = new ValidateTokenResponse(true, "456", "buyer1", "BUYER");
         when(iamService.validateToken(validToken)).thenReturn(tokenResponse);
         when(iamService.authorizeRole(validToken, "SELLER")).thenReturn(false);
 
@@ -157,9 +157,9 @@ class CatalogueControllerTest {
         dtoWithWrongSellerId.setStartPrice(100.0);
         dtoWithWrongSellerId.setShippingPrice(10.0);
         dtoWithWrongSellerId.setDurationHours(24);
-        dtoWithWrongSellerId.setSellerId(999L); // This should be overridden
+        dtoWithWrongSellerId.setSellerId("999"); // This should be overridden
 
-        ValidateTokenResponse tokenResponse = new ValidateTokenResponse(true, 123L, "seller1", "SELLER");
+        ValidateTokenResponse tokenResponse = new ValidateTokenResponse(true, "123", "seller1", "SELLER");
         when(iamService.validateToken(validToken)).thenReturn(tokenResponse);
         when(iamService.authorizeRole(validToken, "SELLER")).thenReturn(true);
         when(catalogueFacade.addItem(any(ItemDTO.class))).thenReturn(mockItem);
@@ -170,7 +170,7 @@ class CatalogueControllerTest {
                 .content(objectMapper.writeValueAsString(dtoWithWrongSellerId)))
                 .andExpect(status().isOk());
 
-        verify(catalogueFacade).addItem(argThat(dto -> dto.getSellerId().equals(123L)));
+        verify(catalogueFacade).addItem(argThat(dto -> dto.getSellerId().equals("123")));
     }
 
     @Test
@@ -268,7 +268,7 @@ class CatalogueControllerTest {
         invalidItemDTO.setShippingPrice(10.0);
         invalidItemDTO.setDurationHours(24);
 
-        ValidateTokenResponse tokenResponse = new ValidateTokenResponse(true, 123L, "seller1", "SELLER");
+        ValidateTokenResponse tokenResponse = new ValidateTokenResponse(true, "123", "seller1", "SELLER");
         when(iamService.validateToken(validToken)).thenReturn(tokenResponse);
         when(iamService.authorizeRole(validToken, "SELLER")).thenReturn(true);
 
@@ -291,7 +291,7 @@ class CatalogueControllerTest {
         invalidItemDTO.setShippingPrice(10.0);
         invalidItemDTO.setDurationHours(24);
 
-        ValidateTokenResponse tokenResponse = new ValidateTokenResponse(true, 123L, "seller1", "SELLER");
+        ValidateTokenResponse tokenResponse = new ValidateTokenResponse(true, "123", "seller1", "SELLER");
         when(iamService.validateToken(validToken)).thenReturn(tokenResponse);
         when(iamService.authorizeRole(validToken, "SELLER")).thenReturn(true);
 
@@ -314,7 +314,7 @@ class CatalogueControllerTest {
         invalidItemDTO.setShippingPrice(10.0);
         invalidItemDTO.setDurationHours(24);
 
-        ValidateTokenResponse tokenResponse = new ValidateTokenResponse(true, 123L, "seller1", "SELLER");
+        ValidateTokenResponse tokenResponse = new ValidateTokenResponse(true, "123", "seller1", "SELLER");
         when(iamService.validateToken(validToken)).thenReturn(tokenResponse);
         when(iamService.authorizeRole(validToken, "SELLER")).thenReturn(true);
 
@@ -335,7 +335,7 @@ class CatalogueControllerTest {
         invalidItemDTO.setDescription("Test Description");
         // Missing required fields: startPrice, shippingPrice, durationHours
 
-        ValidateTokenResponse tokenResponse = new ValidateTokenResponse(true, 123L, "seller1", "SELLER");
+        ValidateTokenResponse tokenResponse = new ValidateTokenResponse(true, "123", "seller1", "SELLER");
         when(iamService.validateToken(validToken)).thenReturn(tokenResponse);
         when(iamService.authorizeRole(validToken, "SELLER")).thenReturn(true);
 
@@ -358,7 +358,7 @@ class CatalogueControllerTest {
         invalidItemDTO.setShippingPrice(-5.0); // Invalid: negative shipping
         invalidItemDTO.setDurationHours(24);
 
-        ValidateTokenResponse tokenResponse = new ValidateTokenResponse(true, 123L, "seller1", "SELLER");
+        ValidateTokenResponse tokenResponse = new ValidateTokenResponse(true, "123", "seller1", "SELLER");
         when(iamService.validateToken(validToken)).thenReturn(tokenResponse);
         when(iamService.authorizeRole(validToken, "SELLER")).thenReturn(true);
 
@@ -381,7 +381,7 @@ class CatalogueControllerTest {
         invalidItemDTO.setShippingPrice(10.0);
         invalidItemDTO.setDurationHours(0); // Invalid: must be at least 1 hour
 
-        ValidateTokenResponse tokenResponse = new ValidateTokenResponse(true, 123L, "seller1", "SELLER");
+        ValidateTokenResponse tokenResponse = new ValidateTokenResponse(true, "123", "seller1", "SELLER");
         when(iamService.validateToken(validToken)).thenReturn(tokenResponse);
         when(iamService.authorizeRole(validToken, "SELLER")).thenReturn(true);
 

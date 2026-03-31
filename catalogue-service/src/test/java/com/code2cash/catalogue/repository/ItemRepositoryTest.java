@@ -53,7 +53,7 @@ class ItemRepositoryTest {
         activeItem1.setDurationHours(48);
         activeItem1.setEndDate(LocalDateTime.now().plusHours(48));
         activeItem1.setStatus("ACTIVE");
-        activeItem1.setSellerId(100L);
+        activeItem1.setSellerId("100");
         entityManager.persist(activeItem1);
 
         activeItem2 = new Item();
@@ -64,7 +64,7 @@ class ItemRepositoryTest {
         activeItem2.setDurationHours(72);
         activeItem2.setEndDate(LocalDateTime.now().plusHours(72));
         activeItem2.setStatus("ACTIVE");
-        activeItem2.setSellerId(101L);
+        activeItem2.setSellerId("101");
         entityManager.persist(activeItem2);
 
         // Create expired item (end date in the past)
@@ -76,7 +76,7 @@ class ItemRepositoryTest {
         expiredItem.setDurationHours(24);
         expiredItem.setEndDate(LocalDateTime.now().minusHours(24));
         expiredItem.setStatus("EXPIRED");
-        expiredItem.setSellerId(102L);
+        expiredItem.setSellerId("102");
         entityManager.persist(expiredItem);
 
         entityManager.flush();
@@ -244,7 +244,7 @@ class ItemRepositoryTest {
         newItem.setDurationHours(36);
         newItem.setEndDate(LocalDateTime.now().plusHours(36));
         newItem.setStatus("ACTIVE");
-        newItem.setSellerId(200L);
+        newItem.setSellerId("200");
 
         // Act
         Item saved = itemRepository.save(newItem);
@@ -290,7 +290,7 @@ class ItemRepositoryTest {
         LocalDateTime exactTime = LocalDateTime.now().plusSeconds(1);
         boundaryItem.setEndDate(exactTime);
         boundaryItem.setStatus("ACTIVE");
-        boundaryItem.setSellerId(300L);
+        boundaryItem.setSellerId("300");
         entityManager.persist(boundaryItem);
         entityManager.flush();
 
@@ -313,7 +313,7 @@ class ItemRepositoryTest {
         specialItem.setDurationHours(24);
         specialItem.setEndDate(LocalDateTime.now().plusHours(24));
         specialItem.setStatus("ACTIVE");
-        specialItem.setSellerId(400L);
+        specialItem.setSellerId("400");
         entityManager.persist(specialItem);
         entityManager.flush();
 

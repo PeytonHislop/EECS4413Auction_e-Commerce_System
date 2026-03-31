@@ -62,7 +62,7 @@ class IAMServiceTest {
     @DisplayName("validateToken - Return valid response for valid token")
     void testValidateToken_WithValidToken_ReturnsValidResponse() {
         // Arrange
-        ValidateTokenResponse expectedResponse = new ValidateTokenResponse(true, 123L, "testuser", "SELLER");
+        ValidateTokenResponse expectedResponse = new ValidateTokenResponse(true, "123", "testuser", "SELLER");
         ResponseEntity<ValidateTokenResponse> responseEntity = new ResponseEntity<>(expectedResponse, HttpStatus.OK);
         
         when(restTemplate.exchange(
@@ -78,7 +78,7 @@ class IAMServiceTest {
         // Assert
         assertNotNull(result);
         assertTrue(result.isValid());
-        assertEquals(123L, result.getUserId());
+        assertEquals("123", result.getUserId());
         assertEquals("testuser", result.getUsername());
         assertEquals("SELLER", result.getRole());
 
@@ -94,7 +94,7 @@ class IAMServiceTest {
     @DisplayName("validateToken - Set Authorization header correctly")
     void testValidateToken_SetsAuthorizationHeader() {
         // Arrange
-        ValidateTokenResponse expectedResponse = new ValidateTokenResponse(true, 123L, "testuser", "SELLER");
+        ValidateTokenResponse expectedResponse = new ValidateTokenResponse(true, "123", "testuser", "SELLER");
         ResponseEntity<ValidateTokenResponse> responseEntity = new ResponseEntity<>(expectedResponse, HttpStatus.OK);
         
         when(restTemplate.exchange(
@@ -333,7 +333,7 @@ class IAMServiceTest {
                 .thenReturn(responseEntity);
 
         // Act
-        Object result = iamService.getUserInfo(123L);
+        Object result = iamService.getUserInfo("123");
 
         // Assert
         assertNotNull(result);
@@ -351,7 +351,7 @@ class IAMServiceTest {
                 .thenThrow(new RestClientException("User not found"));
 
         // Act
-        Object result = iamService.getUserInfo(123L);
+        Object result = iamService.getUserInfo("123");
 
         // Assert
         assertNull(result);
@@ -366,7 +366,7 @@ class IAMServiceTest {
                 .thenReturn(responseEntity);
 
         // Act
-        iamService.getUserInfo(456L);
+        iamService.getUserInfo("456");
 
         // Assert
         verify(restTemplate).getForEntity(
@@ -383,7 +383,7 @@ class IAMServiceTest {
                 .thenReturn(responseEntity);
 
         // Act
-        Object result = iamService.getUserInfo(123L);
+        Object result = iamService.getUserInfo("123");
 
         // Assert
         assertNull(result);
