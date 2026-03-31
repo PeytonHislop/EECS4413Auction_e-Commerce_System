@@ -1,12 +1,13 @@
 package com.code2cash.auction.dto;
 
+import org.springframework.hateoas.RepresentationModel;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
  * DTO for bid response
  */
-public class BidResponse {
+public class BidResponse extends RepresentationModel<BidResponse> {
     
     private String bidId;
     private String auctionId;
