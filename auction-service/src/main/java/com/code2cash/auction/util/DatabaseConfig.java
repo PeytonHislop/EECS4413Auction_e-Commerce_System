@@ -4,7 +4,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.datasource.DriverManagerDataSource;
+import org.sqlite.SQLiteDataSource;
 
 import javax.sql.DataSource;
 
@@ -23,9 +23,11 @@ public class DatabaseConfig {
     
     @Bean
     public DataSource dataSource() {
-        DriverManagerDataSource dataSource = new DriverManagerDataSource();
-        dataSource.setDriverClassName(driverClassName);
+        // SQLite foreign key enforcement is OFF by default, but schema.sql defines
+        // ON DELETE CASCADE on bids -> auctions, so we must enable it.
+        SQLiteDataSource dataSource = new SQLiteDataSource();
         dataSource.setUrl(databaseUrl);
+        dataSource.setEnforceForeignKeys(true);
         return dataSource;
     }
     

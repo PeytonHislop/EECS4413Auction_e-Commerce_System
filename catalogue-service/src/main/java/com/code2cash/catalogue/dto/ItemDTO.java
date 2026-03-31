@@ -24,7 +24,7 @@ public class ItemDTO {
     @Min(value = 1, message = "Duration must be at least 1 hour")
     private Integer durationHours;
 
-    private Long sellerId; // Passed from the session/token
+    private String sellerId; // Passed from the session/token (UUID from IAM)
 
     // Constructors
     public ItemDTO() {
@@ -71,11 +71,11 @@ public class ItemDTO {
         this.durationHours = durationHours;
     }
 
-    public Long getSellerId() {
+    public String getSellerId() {
         return sellerId;
     }
 
-    public void setSellerId(Long sellerId) {
+    public void setSellerId(String sellerId) {
         this.sellerId = sellerId;
     }
 }

@@ -117,9 +117,14 @@ public class AuctionDAOImpl implements AuctionDAO {
     
     @Override
     public List<Auction> findActiveAuctions() {
-        String sql = "SELECT * FROM auctions WHERE status = 'ACTIVE' AND end_time > datetime('now') " +
-                     "ORDER BY end_time ASC";
-        return jdbcTemplate.query(sql, auctionRowMapper);
+        // Avoid SQLite TIMESTAMP parsing quirks: load ACTIVE auctions and filter by end_time in Java.
+        String sql = "SELECT * FROM auctions WHERE status = 'ACTIVE' ORDER BY end_time ASC";
+        List<Auction> auctions = jdbcTemplate.query(sql, auctionRowMapper);
+
+        LocalDateTime now = LocalDateTime.now();
+        return auctions.stream()
+                .filter(a -> a.getEndTime() != null && a.getEndTime().isAfter(now))
+                .toList();
     }
     
     @Override
@@ -180,8 +185,14 @@ public class AuctionDAOImpl implements AuctionDAO {
     
     @Override
     public List<Auction> findExpiredActiveAuctions() {
-        String sql = "SELECT * FROM auctions WHERE status = 'ACTIVE' AND end_time <= datetime('now')";
-        return jdbcTemplate.query(sql, auctionRowMapper);
+        // Avoid SQLite TIMESTAMP parsing quirks: load ACTIVE auctions and filter by end_time in Java.
+        String sql = "SELECT * FROM auctions WHERE status = 'ACTIVE'";
+        List<Auction> auctions = jdbcTemplate.query(sql, auctionRowMapper);
+
+        LocalDateTime now = LocalDateTime.now();
+        return auctions.stream()
+                .filter(a -> a.getEndTime() != null && !a.getEndTime().isAfter(now))
+                .toList();
     }
     
     @Override

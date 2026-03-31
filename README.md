@@ -8,6 +8,7 @@ This repository contains the back-end services for the auction platform. For Del
 - Auction: `8082`
 - Catalogue: `8083`
 - Payment: `8084`
+- Leaderboard: `8085`
 
 ---
 
