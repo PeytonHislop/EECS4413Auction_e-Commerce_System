@@ -15,35 +15,44 @@ import java.util.List;
 public interface LeaderboardRepository extends JpaRepository<LeaderboardEntry, Long> {
     
     /**
-     * Find top N entries for current week ordered by bid amount (descending)
-     */
-    List<LeaderboardEntry> findByWeekStartAndWeekEndOrderByBidAmountDesc(
-            LocalDateTime weekStart, LocalDateTime weekEnd);
-    
-    /**
-     * Find entries for a specific week
-     */
-    List<LeaderboardEntry> findByWeekStartAndWeekEnd(
-            LocalDateTime weekStart, LocalDateTime weekEnd);
-    
-    /**
-     * Find top entries based on limit
+     * Find top entries for a date range based on bid timestamp.
+     * Using a range avoids precision mismatch on persisted timestamp fields.
      */
     @Query(value = "SELECT * FROM leaderboard_entries " +
-                   "WHERE week_start = ?1 AND week_end = ?2 " +
+                   "WHERE bid_time BETWEEN ?1 AND ?2 " +
                    "ORDER BY bid_amount DESC LIMIT ?3", nativeQuery = true)
-    List<LeaderboardEntry> findTopEntriesForWeek(LocalDateTime weekStart, LocalDateTime weekEnd, int limit);
-    
+    List<LeaderboardEntry> findTopEntriesByBidTimeRange(LocalDateTime weekStart, LocalDateTime weekEnd, int limit);
+
     /**
-     * Find bids by bidder for current week
+     * Find the single highest bid within a date range.
      */
-    List<LeaderboardEntry> findByBidderIdAndWeekStartAndWeekEndOrderByBidAmountDesc(
+    @Query(value = "SELECT * FROM leaderboard_entries " +
+                   "WHERE bid_time BETWEEN ?1 AND ?2 " +
+                   "ORDER BY bid_amount DESC LIMIT 1", nativeQuery = true)
+    List<LeaderboardEntry> findHighestEntryByBidTimeRange(LocalDateTime start, LocalDateTime end);
+
+    /**
+     * Aggregate top bidders by period.
+     */
+    @Query(value = "SELECT bidder_id AS bidderId, MAX(bidder_name) AS bidderName, COUNT(*) AS bidCount, " +
+            "MAX(bid_amount) AS highestBid, SUM(bid_amount) AS totalBidValue " +
+            "FROM leaderboard_entries " +
+            "WHERE bid_time BETWEEN ?1 AND ?2 " +
+            "GROUP BY bidder_id " +
+            "ORDER BY highestBid DESC, totalBidValue DESC " +
+            "LIMIT ?3", nativeQuery = true)
+    List<TopBidderProjection> findTopBiddersByBidTimeRange(LocalDateTime start, LocalDateTime end, int limit);
+
+    /**
+     * Find bidder bids for a date range based on bid timestamp.
+     */
+    List<LeaderboardEntry> findByBidderIdAndBidTimeBetweenOrderByBidAmountDesc(
             String bidderId, LocalDateTime weekStart, LocalDateTime weekEnd);
-    
+
     /**
-     * Count entries for current week
+     * Count entries in a date range based on bid timestamp.
      */
-    long countByWeekStartAndWeekEnd(LocalDateTime weekStart, LocalDateTime weekEnd);
+    long countByBidTimeBetween(LocalDateTime weekStart, LocalDateTime weekEnd);
     
     /**
      * Clear old entries (older than specified date)
