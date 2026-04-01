@@ -144,7 +144,7 @@ services:
       dockerfile: Dockerfile
     container_name: frontend
     ports:
-      - "80:80"             # Access the app at http://localhost
+      - "5173:80"             # Access the app at http://localhost
     depends_on:
       - gateway-service
       - leaderboard-service
