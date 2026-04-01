@@ -1,4 +1,4 @@
-class WebSocketClient {
+class websocketClient {
   constructor() {
     this.client = null;
     this.subscriptions = new Map();
@@ -126,4 +126,4 @@ class WebSocketClient {
   }
 }
 
-export const wsClient = new WebSocketClient();
+export const wsClient = new websocketClient();
