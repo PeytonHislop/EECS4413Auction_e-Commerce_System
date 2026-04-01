@@ -1,6 +1,15 @@
 # EECS 4413 Auction e-Commerce System — Team 9: Code2Cash (Deliverable 2)
 
-This repository contains the back-end services for the auction platform. For Deliverable 2, the system focuses on **back-end business logic services** and their REST interfaces, plus scripts/tests to demonstrate the main flows.
+This repository contains the full-stack implementation of the Code2Cash auction platform. For Deliverable 3, the system includes:
+- a React frontend
+- a Gateway service as the single backend entry point
+- IAM Service
+- Auction Service
+- Catalogue Service
+- Payment Service
+- Leaderboard Service
+
+The frontend communicates with the backend through the Gateway service, so users interact with a single web application while the gateway forwards requests to the appropriate downstream services.
 
 > **Ports**
 - Gateway: `8080`
@@ -9,21 +18,6 @@ This repository contains the back-end services for the auction platform. For Del
 - Catalogue: `8083`
 - Payment: `8084`
 - Leaderboard: `8085`
-
----
-
-## Repository structure
-
-```text
-EECS4413Auction_e-Commerce_System/
-├── README.md
-├── iam-service/
-├── gateway-service/
-├── auction-service/
-├── catalogue-service/
-├── payment-service/
-└── scripts/
-```
 
 ---
 
@@ -86,6 +80,16 @@ mvn spring-boot:run
 ```
 
 Default: `http://localhost:8084`
+
+### 6) Run Frontend
+Change the directory to where the frontend resides
+
+```bash
+npm install
+npm run dev
+```
+
+By default, the frontend runs on: http://localhost:5173
 
 ---
 
@@ -427,14 +431,14 @@ Gateway forwards `/api/items/*` to Catalogue Service via `CatalogueClient` and `
 
 ---
 
-## Deliverable 2 artifacts checklist
-
-- ✅ Back-end implementation
-
-- ✅ Curl scripts
-
-- ✅ Test cases
-
-- ✅ Instructions to run tests
-
-- ⏳ Updated design doc
+## Deliverable 3 artifacts checklist  
+✅ Backend microservices  
+✅ Gateway integration  
+✅ React frontend  
+✅ Full-stack user flows  
+✅ Authentication flow through IAM  
+✅ Frontend-to-gateway integration  
+✅ Instructions to run backend and frontend  
+✅ Demonstrable UI for major use cases  
+  
+- ⏳ Updated design doc  
