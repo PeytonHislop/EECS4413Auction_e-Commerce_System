@@ -1,4 +1,4 @@
-# EECS 4413 Auction e-Commerce System — Team 9: Code2Cash (Deliverable 2)
+# EECS 4413 Auction e-Commerce System — Team 9: Code2Cash (Deliverable 3)
 
 This repository contains the full-stack implementation of the Code2Cash auction platform. For Deliverable 3, the system includes:
 - a React frontend
