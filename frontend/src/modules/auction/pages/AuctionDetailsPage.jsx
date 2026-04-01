@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import ModuleHeader from "../../../shared/components/ModuleHeader";
 import StatusBanner from "../../../shared/components/StatusBanner";
@@ -19,6 +19,7 @@ export default function AuctionDetailsPage() {
   const [bidCount, setBidCount] = useState(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [liveFlash, setLiveFlash] = useState(false);
   const [bidForm, setBidForm] = useState({
     bidderId: userId || "",
     bidAmount: ""
@@ -29,6 +30,7 @@ export default function AuctionDetailsPage() {
     setBidForm((prev) => ({ ...prev, bidderId: userId || prev.bidderId }));
   }, [userId]);
 
+  // ── Initial data load ─────────────────────────────────────────────────────
   async function loadAuction() {
     const [auctionData, bidHistory, highest, count] = await Promise.all([
       auctionApi.getAuctionById(auctionId),
@@ -36,16 +38,24 @@ export default function AuctionDetailsPage() {
       auctionApi.getHighestBid(auctionId).catch(() => null),
       auctionApi.getBidCount(auctionId).catch(() => null)
     ]);
-
     setAuction(auctionData);
     setBids(Array.isArray(bidHistory) ? bidHistory : []);
     setHighestBid(highest);
     setBidCount(count);
   }
 
+  async function handleLoadBids() {
+    try {
+      setError("");
+      const bidHistory = await auctionApi.getBidHistory(auctionId);
+      setBids(Array.isArray(bidHistory) ? bidHistory : []);
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
   useEffect(() => {
     let ignore = false;
-
     async function load() {
       try {
         await loadAuction();
@@ -53,52 +63,92 @@ export default function AuctionDetailsPage() {
         if (!ignore) setError(err.message);
       }
     }
-
     load();
-    return () => {
-      ignore = true;
-    };
+    return () => { ignore = true; };
   }, [auctionId]);
 
-  // WebSocket subscription for real-time bid updates
+  // ── WebSocket — live bid updates ──────────────────────────────────────────
   useEffect(() => {
     if (!auctionId) return;
 
-    // Connect to WebSocket
-    auctionApi.connectWebSocket(
-      () => {
-        console.log('WebSocket connected, subscribing to auction bids');
-        // Subscribe to bid updates for this auction
-        auctionApi.subscribeToAuctionBids(auctionId, (bidUpdate) => {
-          console.log('Received bid update:', bidUpdate);
-          // Update the auction's current highest bid
-          setAuction(prev => prev ? {
-            ...prev,
-            currentHighestBid: bidUpdate.bidAmount,
-            currentHighestBidderId: bidUpdate.bidderId
-          } : prev);
-          // Reload bid history and counts
-          loadAuction();
-        });
-      },
-      (error) => {
-        console.error('WebSocket connection error:', error);
-      }
-    );
+    // The callback that handles an incoming bid update
+    function onBidUpdate(bidUpdate) {
+      console.log("Live bid update received:", bidUpdate);
 
-    // Cleanup on unmount
+      // Update the auction card (current highest bid + bidder)
+      setAuction((prev) =>
+        prev
+          ? {
+              ...prev,
+              currentHighestBid: bidUpdate.bidAmount,
+              currentHighestBidderId: bidUpdate.bidderId
+            }
+          : prev
+      );
+
+      // Update bid summary card
+      setHighestBid((prev) => ({
+        ...(prev || {}),
+        bidId: bidUpdate.bidId,
+        auctionId: bidUpdate.auctionId,
+        bidderId: bidUpdate.bidderId,
+        bidAmount: bidUpdate.bidAmount,
+        bidTimestamp: bidUpdate.bidTimestamp
+      }));
+
+      // Increment bid count immediately
+      setBidCount((prev) =>
+        prev ? { ...prev, bidCount: (prev.bidCount ?? 0) + 1 } : { bidCount: 1 }
+      );
+
+      // Prepend new bid to history table
+      setBids((prev) => [
+        {
+          bidId: bidUpdate.bidId,
+          auctionId: bidUpdate.auctionId,
+          bidderId: bidUpdate.bidderId,
+          bidAmount: bidUpdate.bidAmount,
+          bidTimestamp: bidUpdate.bidTimestamp
+        },
+        ...prev
+      ]);
+
+      // Green flash on the bid summary card
+      setLiveFlash(true);
+      setTimeout(() => setLiveFlash(false), 1200);
+    }
+
+    // The wsClient is a singleton — it may already be connected from a
+    // previous page visit. We handle both cases:
+    //   A) Already connected → subscribe immediately
+    //   B) Not yet connected → connect first, then subscribe in onConnect
+    if (auctionApi.isWebSocketConnected()) {
+      // Already connected — subscribe straight away
+      auctionApi.subscribeToAuctionBids(auctionId, onBidUpdate);
+    } else {
+      // Not connected — connect then subscribe
+      auctionApi.connectWebSocket(
+        () => {
+          console.log("WebSocket connected, subscribing to", auctionId);
+          auctionApi.subscribeToAuctionBids(auctionId, onBidUpdate);
+        },
+        (err) => {
+          console.warn("WebSocket unavailable, live updates disabled:", err?.message || err);
+        }
+      );
+    }
+
     return () => {
       auctionApi.unsubscribeFromAuctionBids(auctionId);
-      auctionApi.disconnectWebSocket();
     };
   }, [auctionId]);
-  
+  // ─────────────────────────────────────────────────────────────────────────
+
   async function handlePlaceBid(event) {
     event.preventDefault();
     setError("");
     setSuccess("");
     setPlacingBid(true);
-
     try {
       const payload = {
         bidderId: bidForm.bidderId,
@@ -107,8 +157,7 @@ export default function AuctionDetailsPage() {
       const result = await auctionApi.placeBid(auctionId, payload, token);
       setSuccess(result.message || "Bid placed successfully.");
       setBidForm((prev) => ({ ...prev, bidAmount: "" }));
-      // await loadAuction();
-      // No need to reload manually, WebSocket will update
+      // WebSocket handles the UI update — no need to reload
     } catch (err) {
       setError(err.message);
     } finally {
@@ -120,7 +169,7 @@ export default function AuctionDetailsPage() {
     <div className="page">
       <ModuleHeader
         title={`Auction details · ${auctionId}`}
-        description="Auction owner owns detail rendering, bid history, and bid submission UX."
+        description="Auction owner owns detail rendering, bid history, and bid submission UX. Bid updates are live via WebSocket."
         owner="Auction owner"
       />
 
@@ -153,9 +202,29 @@ export default function AuctionDetailsPage() {
           </div>
 
           <div className="grid two">
-            <div className="card">
-              <h3>Bid summary</h3>
-              <p className="metric">{formatCurrency(highestBid?.bidAmount || auction.currentHighestBid)}</p>
+            <div
+              className="card"
+              style={{
+                transition: "box-shadow 0.3s ease",
+                boxShadow: liveFlash ? "0 0 0 3px #22c55e" : undefined
+              }}
+            >
+              <h3>
+                Bid summary{" "}
+                <span style={{
+                  fontSize: "0.78rem",
+                  background: "#dcfce7",
+                  color: "#15803d",
+                  borderRadius: "999px",
+                  padding: "0.2rem 0.55rem",
+                  marginLeft: "0.4rem"
+                }}>
+                  ● LIVE
+                </span>
+              </h3>
+              <p className="metric">
+                {formatCurrency(highestBid?.bidAmount || auction.currentHighestBid)}
+              </p>
               <p>Highest bid</p>
               <div className="inline-meta">
                 <span>Bid count: {bidCount?.bidCount ?? bids.length}</span>
@@ -177,7 +246,9 @@ export default function AuctionDetailsPage() {
               )}
             </div>
           </div>
-
+          <button className="btn secondary" onClick={handleLoadBids}>
+              Load bid history
+            </button>
           <BidHistoryTable bids={bids} />
           {highestBid && <JsonViewer title="Highest bid response" data={highestBid} />}
         </>
