@@ -21,7 +21,56 @@ The frontend communicates with the backend through the Gateway service, so users
 
 ---
 
-## Quick Start - Run All Services
+## Setup (Docker)
+
+(Initial Step) Install Docker Desktop
+
+1. Go to https://www.docker.com/products/docker-desktop/
+2. Download "Docker Desktop for Windows"
+3. Run the installer (it installs both Docker and Docker Compose)
+4. Restart your computer when asked
+5. Open Docker Desktop — wait for it to say "Engine running" in the bottom left
+
+Verify it worked — open PowerShell and run:
+```powershell
+docker --version
+docker compose version
+```
+Setup: Open PowerShell, navigate to the ROOT of your repo (where docker-compose.yml is)
+
+```powershell
+cd C:\path\to\EECS4413Auction_e-Commerce_System
+```
+
+Then run:
+
+```powershell
+docker compose up --build
+```
+
+What happens:
+- Docker reads docker-compose.yml
+- For each service, it runs the Dockerfile (Maven downloads dependencies, compiles the code, builds the jar)
+- All 7 containers start up on the same internal network
+- You will see logs from all services streaming in the terminal
+
+The FIRST time you run this it will take 5-10 minutes because Maven needs to
+download all dependencies. After that, rebuilds are much faster because Docker
+caches layers.
+
+When you see output like this, everything is running:
+```
+iam-service        | Started IamServiceApplication in 4.2 seconds
+catalogue-service  | Started CatalogueApplication in 3.8 seconds
+auction-service    | Started AuctionServiceApplication in 5.1 seconds
+payment-service    | Started PaymentServiceApplication in 3.5 seconds
+leaderboard-service| Started LeaderboardServiceApplication in 2.9 seconds
+gateway-service    | Started GatewayServiceApplication in 4.0 seconds
+frontend           | nginx: [notice] start worker processes
+```
+---
+
+## Quick Start - Run All Services (Manual)
 
 ### 1) Run Gateway
 From `gateway-service/`:
