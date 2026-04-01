@@ -1,0 +1,165 @@
+version: "3.9"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Code2Cash Auction Platform — Docker Compose
+#
+# Starts all 7 services on an isolated Docker network called "code2cash".
+# Services talk to each other using their service names as hostnames
+# (e.g. http://iam-service:8081) — Docker handles the DNS automatically.
+#
+# Usage:
+#   docker compose up --build        → build images and start everything
+#   docker compose up --build -d     → same but runs in background
+#   docker compose down              → stop and remove containers
+#   docker compose down -v           → also delete database volumes
+#   docker compose logs -f           → watch all logs live
+#   docker compose logs auction-service -f  → watch one service
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+
+  # ── IAM Service (Ravneet) — Port 8081 ───────────────────────────────────────
+  # Handles sign-up, login, token validation, and role authorization.
+  # Uses H2 in-memory database — data resets on container restart (acceptable for demo).
+  iam-service:
+    build:
+      context: ./iam-service
+      dockerfile: Dockerfile
+    container_name: iam-service
+    ports:
+      - "8081:8081"         # host:container — access at http://localhost:8081
+    networks:
+      - code2cash
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ── Catalogue Service (Anton) — Port 8083 ───────────────────────────────────
+  # Manages auction item listings and keyword search.
+  # Uses H2 in-memory database.
+  # Overrides the IAM URL from localhost to Docker service name.
+  catalogue-service:
+    build:
+      context: ./catalogue-service
+      dockerfile: Dockerfile
+    container_name: catalogue-service
+    ports:
+      - "8083:8083"
+    environment:
+      - iam.service.url=http://iam-service:8081
+    depends_on:
+      - iam-service
+    networks:
+      - code2cash
+
+  # ── Auction Service (Mustafa) — Port 8082 ───────────────────────────────────
+  # Core auction and bid engine. Uses SQLite stored in a Docker volume so
+  # auction data persists across container restarts.
+  # Overrides all service URLs to use Docker service names.
+  auction-service:
+    build:
+      context: ./auction-service
+      dockerfile: Dockerfile
+    container_name: auction-service
+    ports:
+      - "8082:8082"
+    volumes:
+      - auction-data:/app/data    # SQLite database persisted here
+    environment:
+      - service.iam.url=http://iam-service:8081
+      - service.catalogue.url=http://catalogue-service:8083
+      - service.payment.url=http://payment-service:8084
+      - service.iam.mock=false    # set to "true" to bypass IAM for standalone testing
+    depends_on:
+      - iam-service
+      - catalogue-service
+    networks:
+      - code2cash
+
+  # ── Payment Service (Peyton) — Port 8084 ────────────────────────────────────
+  # Handles payment processing and receipt generation.
+  # Uses SQLite stored in a Docker volume.
+  payment-service:
+    build:
+      context: ./payment-service
+      dockerfile: Dockerfile
+    container_name: payment-service
+    ports:
+      - "8084:8084"
+    volumes:
+      - payment-data:/app/data    # SQLite database persisted here
+    depends_on:
+      - iam-service
+    networks:
+      - code2cash
+
+  # ── Leaderboard Service (Mustafa) — Port 8085 ───────────────────────────────
+  # Weekly bid leaderboard. Uses H2 in-memory database (intentional —
+  # resets weekly by design).
+  leaderboard-service:
+    build:
+      context: ./leaderboard-service
+      dockerfile: Dockerfile
+    container_name: leaderboard-service
+    ports:
+      - "8085:8085"
+    networks:
+      - code2cash
+
+  # ── Gateway Service — Port 8080 ─────────────────────────────────────────────
+  # Single entry point for all frontend API calls.
+  # Overrides all downstream service URLs to use Docker service names.
+  gateway-service:
+    build:
+      context: ./gateway-service
+      dockerfile: Dockerfile
+    container_name: gateway-service
+    ports:
+      - "8080:8080"
+    environment:
+      - downstream.iam.base-url=http://iam-service:8081
+      - downstream.auction.base-url=http://auction-service:8082
+      - downstream.catalogue.base-url=http://catalogue-service:8083
+      - downstream.payment.base-url=http://payment-service:8084
+      - downstream.leaderboard.base-url=http://leaderboard-service:8085
+    depends_on:
+      - iam-service
+      - catalogue-service
+      - auction-service
+      - payment-service
+      - leaderboard-service
+    networks:
+      - code2cash
+
+  # ── Frontend — Port 80 ──────────────────────────────────────────────────────
+  # Vite React app built and served by nginx.
+  # nginx proxies /api/* → gateway and /leaderboard-api/* → leaderboard directly.
+  # Access the app at http://localhost (port 80, no port number needed).
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: frontend
+    ports:
+      - "80:80"             # Access the app at http://localhost
+    depends_on:
+      - gateway-service
+      - leaderboard-service
+    networks:
+      - code2cash
+
+# ── Volumes ──────────────────────────────────────────────────────────────────
+# Named volumes so SQLite databases survive "docker compose down" (but not "docker compose down -v")
+volumes:
+  auction-data:
+  payment-data:
+
+# ── Network ──────────────────────────────────────────────────────────────────
+# All services on one isolated bridge network.
+# Services reach each other by name (e.g. http://iam-service:8081).
+networks:
+  code2cash:
+    driver: bridge
