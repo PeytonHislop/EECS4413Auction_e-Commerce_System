@@ -13,23 +13,6 @@ This repository contains the back-end services and frontend for the auction plat
 
 ---
 
-## Repository structure
-
-```text
-EECS4413Auction_e-Commerce_System/
-├── README.md
-├── iam-service/
-├── gateway-service/
-├── auction-service/
-├── catalogue-service/
-├── leaderboard-service/
-├── payment-service/
-├── frontend/
-└── scripts/
-```
-
----
-
 ## Quick Start - Run All Services
 
 ### 1) Run IAM
