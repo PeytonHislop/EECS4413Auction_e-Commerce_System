@@ -87,6 +87,7 @@ Change the directory to where the frontend resides
 ```bash
 npm install
 npm run dev
+npm install @stomp/stompjs sockjs-client
 ```
 
 By default, the frontend runs on: http://localhost:5173
@@ -162,7 +163,7 @@ If using file mode, ignore `data/` and `*.mv.db` in `.gitignore`.
 
 ### Tech Stack
 - **Framework:** Spring Boot 3.2.0
-- **Language:** Java 17
+- **Language:** Java 21
 - **Database:** SQLite 3.44.1 (auto-initializes on startup)
 - **Build Tool:** Maven (with wrapper included)
 - **Testing:** JUnit 5, MockMvc, curl scripts
@@ -223,10 +224,10 @@ POST /api/auctions/close-expired               # Batch close expired (ADMIN role
 - **Sample Data** - 3 auctions and 5 bids pre-populated for testing
 
 ### Test Cases Implemented
-- **TC-AUC-01**: Place valid bid (higher than current highest) ✅
-- **TC-AUC-02**: Reject bid lower than current highest ✅
-- **TC-AUC-03**: Create auction with seller authentication ✅
-- **TC-AUC-04**: Close auction and determine winner based on reserve price ✅
+- **TC-AUC-01**: Place valid bid (higher than current highest) 
+- **TC-AUC-02**: Reject bid lower than current highest 
+- **TC-AUC-03**: Create auction with seller authentication 
+- **TC-AUC-04**: Close auction and determine winner based on reserve price 
 
 ### Testing Auction Service
 
@@ -309,40 +310,6 @@ cd auction-service
 rm auction-service.db
 ./mvnw spring-boot:run
 ```
-
-The database will auto-recreate with sample data.
-
-### Integration with Other Services
-
-**IAM Service (Port 8081):**
-- `POST /auth/validate` - Validates JWT tokens
-- `POST /auth/authorize` - Checks user roles (BUYER/SELLER/ADMIN)
-- `GET /users/{userId}` - Retrieves user profile
-
-**Catalogue Service (Port 8083):**
-- `GET /items/{itemId}` - Verifies item exists before auction creation *(currently mocked)*
-
-**Payment Service (Port 8084):**
-- `POST /payments` - Initiates payment when auction closes with winner *(currently mocked)*
-
-### Gateway Integration
-Gateway forwards `/api/auctions/*` to Auction Service via `AuctionClient` and `AuctionGatewayController`.
-
-Frontend should call:
-```
-http://localhost:8080/api/auctions/*  (Gateway)
-```
-Instead of:
-```
-http://localhost:8082/api/auctions/*  (Direct)
-```
-
-### Documentation
-For detailed documentation, see:
-- `auction-service/README.md` - Service overview
-- `auction-service/TEST_INSTRUCTIONS.md` - Complete testing guide
-- `auction-service/COMPLETE_GUIDE.md` - Detailed implementation guide
-- `auction-service/IAM_INTEGRATION.md` - Integration instructions
 
 ---
 
