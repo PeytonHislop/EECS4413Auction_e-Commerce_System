@@ -2,18 +2,12 @@ package com.yorku.eecs4413.platform.gateway_service.controller;
 
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import com.yorku.eecs4413.platform.gateway_service.client.CatalogueClient;
 
 @RestController
-@RequestMapping("/api/items")
+@RequestMapping("/api/catalogue/items")
 public class CatalogueGatewayController {
 
     private final CatalogueClient catalogue;
