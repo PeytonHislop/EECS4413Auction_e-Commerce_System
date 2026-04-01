@@ -1,16 +1,19 @@
 package com.code2cash.auction.util;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
+
 import java.util.HashMap;
 import java.util.Map;
+
 /**
  * Client for communicating with other microservices
  * Uses Spring WebClient for non-blocking HTTP calls
  * 
- * Integration with Ravneet's IAM Service:
+ * Integration with IAM Service:
  * - /auth/validate - Validates JWT token
  * - /auth/authorize - Checks user role permissions
  * - /users/{userId} - Gets user profile info
@@ -28,10 +31,10 @@ public class ServiceClient {
     
     @Value("${service.payment.url}")
     private String paymentServiceUrl;
-
+    
     @Value("${service.leaderboard.url}")
     private String leaderboardServiceUrl;
-
+    
     // Toggle between mock and real service calls
     @Value("${service.iam.mock:true}")
     private boolean mockIAM;
@@ -60,7 +63,7 @@ public class ServiceClient {
         }
         
         try {
-            // REAL MODE: Call Ravneet's IAM service
+            // REAL MODE: Call IAM service
             Map<String, Object> response = webClient.post()
                 .uri(iamServiceUrl + "/auth/validate")
                 .header("Authorization", "Bearer " + token)
@@ -109,19 +112,15 @@ public class ServiceClient {
         }
         
         try {
-            // REAL MODE: Call Ravneet's IAM service
-            Map<String, String> requestBody = new HashMap<>();
-            requestBody.put("role", role);
-            
-            Map<String, Object> response = webClient.post()
-                .uri(iamServiceUrl + "/auth/authorize")
-                .header("Authorization", "Bearer " + token)
-                .bodyValue(requestBody)
-                .retrieve()
-                .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})
-                .block();
-            
-            return response != null && (Boolean) response.getOrDefault("authorized", false);
+            // REAL MODE: Call IAM service
+        	Map<String, Object> response = webClient.get()
+        		    .uri(iamServiceUrl + "/auth/authorize?requiredRole=" + role)
+        		    .header("Authorization", "Bearer " + token)
+        		    .retrieve()
+        		    .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})
+        		    .block();
+
+        		return response != null && (Boolean) response.getOrDefault("authorized", false);
             
         } catch (WebClientResponseException e) {
             System.err.println("Error authorizing role: " + e.getStatusCode() + " - " + e.getMessage());
@@ -158,7 +157,7 @@ public class ServiceClient {
         }
         
         try {
-            // REAL MODE: Call Ravneet's IAM service
+            // REAL MODE: Call IAM service
             Map<String, Object> response = webClient.get()
                 .uri(iamServiceUrl + "/users/" + userId)
                 .retrieve()
@@ -228,7 +227,7 @@ public class ServiceClient {
             return false;
         }
     }
-
+    
     /**
      * Add bid entry to leaderboard service
      * Calls: POST /api/leaderboard/bids
@@ -254,17 +253,17 @@ public class ServiceClient {
             requestBody.put("bidAmount", bidAmount);
             requestBody.put("sellerId", sellerId);
             requestBody.put("sellerName", sellerName);
-
+            
             webClient.post()
                 .uri(leaderboardServiceUrl + "/api/leaderboard/bids")
                 .bodyValue(requestBody)
                 .retrieve()
                 .bodyToMono(Void.class)
                 .block();
-
+            
             System.out.println("Added bid to leaderboard: " + auctionId + " - $" + bidAmount);
             return true;
-
+            
         } catch (WebClientResponseException e) {
             System.err.println("Error adding leaderboard entry: " + e.getStatusCode() + " - " + e.getMessage());
             return false;
@@ -273,7 +272,7 @@ public class ServiceClient {
             return false;
         }
     }
-
+    
     /**
      * Inner class for validation response from IAM service
      */
