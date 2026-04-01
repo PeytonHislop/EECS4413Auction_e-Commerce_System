@@ -1,0 +1,106 @@
+Manual Startup
+
+Start services in this exact order:
+
+IAM Service (8081)
+Auction Service (8082)
+Catalogue Service (8083)
+Payment Service (8084)
+Gateway Service (8080)
+
+All requests go through the Gateway:
+http://localhost:8080
+
+Import Postman Collection
+Open Postman
+Click Import
+Select the file:
+gateway-payment-flow.postman_collection.json
+
+Run the Main End-to-End Flow 
+
+Run requests in order:
+
+1. Create Buyer
+
+Creates a buyer account.
+
+2. Login Buyer
+
+Stores:
+
+BUYER_TOKEN
+BUYER_USER_ID
+
+3. Create Seller
+
+4. Login Seller
+
+Stores:
+
+SELLER_TOKEN
+SELLER_USER_ID
+
+5. Create Auction (Seller)
+Stores:
+
+AUCTION_ID
+
+6. Place Bid (Buyer)
+
+7. Close Auction (Seller)
+
+Expected:
+
+Auction status → CLOSED
+Winner → Buyer
+
+8. Process Payment (Buyer) 
+
+Final expected response:
+
+{
+  "orderId": "...",
+  "itemPrice": 175.0,
+  "shippingCost": 25.0,
+  "total": 200.0,
+  "shippingDays": 3,
+  "shippingAddress": "10 King St, Toronto, Canada, M1M1M1"
+}
+
+Robustness Testing
+
+You can also test failure cases:
+
+Invalid Token
+
+Remove or change token
+
+→ 401 Unauthorized
+
+Wrong Role (Seller tries payment)
+
+→ 403 Forbidden
+
+Non-Winner Payment
+
+→ 403 Forbidden
+
+Invalid Card
+"cardNumber": "123"
+
+→ 400 Bad Request
+
+Invalid CVV
+"cvv": "1"
+
+→ 400 Bad Request
+
+Invalid Expiry
+"expiry": "99/99"
+
+→ 400 Bad Request
+
+Missing Field
+
+→ 400 Bad Request
