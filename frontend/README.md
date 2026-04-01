@@ -35,7 +35,15 @@ The browser talks to the React dev server, and Vite forwards backend requests to
 ```bash
 npm install
 npm run dev
+npm install @stomp/stompjs sockjs-client
 ```
+
+### Frontend dependencies added for auction real-time updates
+
+The auction module uses STOMP over SockJS for live bid updates on auction details pages.
+
+- `sockjs-client`
+- `@stomp/stompjs`
 
 ## Backend startup order
 
@@ -58,6 +66,7 @@ The React app uses gateway endpoints like:
 - `/api/items/*`
 - `/api/auctions/*`
 - `/api/payments/*`
+- `/api/leaderboard/*`
 
 That keeps the browser from needing to know every service port.
 
@@ -90,3 +99,13 @@ A few service-to-service mismatches exist in the Java code. They do not stop thi
 - Catalogue service directly calling IAM appears to use endpoint shapes that do not match the IAM controller exactly.
 - Auction scheduler comment says 60 seconds, but the `fixedRate` value is much larger.
 - Some DTOs still require IDs that the backend later overrides from JWT validation, so the frontend supplies those IDs to satisfy validation.
+
+### 5) Auction real-time and leaderboard notes
+
+- Auction details page subscribes to `/topic/auction/{auctionId}/bids` through `websocketClient`.
+- `websocketClient` is now fail-safe: if websocket libs/server are unavailable, the UI still renders and the rest of the app remains usable.
+- Leaderboard data depends on auction-service successfully posting bids to leaderboard-service.
+- Start `leaderboard-service` before placing demo bids; bids placed while leaderboard is down are not automatically backfilled.
+- Leaderboard now supports period-based use cases:
+  - highest bid by period (`DAY`, `WEEK`, `YEAR`)
+  - top bidders by period with configurable limit
