@@ -15,7 +15,8 @@ export const auctionApi = {
   closeAuction: (auctionId, token) => api.put(`/api/auctions/${auctionId}/close`, null, token),
   closeExpiredAuctions: (token) => api.post("/api/auctions/close-expired", null, token),
 
-  // WebSocket methods for real-time updates
+  // WebSocket methods for real-time bid updates
+  isWebSocketConnected: () => wsClient.isConnected,
   connectWebSocket: (onConnect, onError) => wsClient.connect(onConnect, onError),
   disconnectWebSocket: () => wsClient.disconnect(),
   subscribeToAuctionBids: (auctionId, callback) =>
