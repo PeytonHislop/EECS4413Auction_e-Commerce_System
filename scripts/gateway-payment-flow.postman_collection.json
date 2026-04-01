@@ -1,0 +1,879 @@
+{
+  "info": {
+    "_postman_id": "64af8a7e-2c26-490b-8a69-412c73ff8628",
+    "name": "Gateway Payment Flow",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "End-to-end Postman collection for testing the payment service through the Gateway Service."
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080"
+    },
+    {
+      "key": "buyerUsername",
+      "value": "john1"
+    },
+    {
+      "key": "buyerPassword",
+      "value": "password123!"
+    },
+    {
+      "key": "sellerUsername",
+      "value": "peyton1"
+    },
+    {
+      "key": "sellerPassword",
+      "value": "password123!"
+    },
+    {
+      "key": "buyerToken",
+      "value": ""
+    },
+    {
+      "key": "buyerUserId",
+      "value": ""
+    },
+    {
+      "key": "sellerToken",
+      "value": ""
+    },
+    {
+      "key": "sellerUserId",
+      "value": ""
+    },
+    {
+      "key": "auctionId",
+      "value": ""
+    },
+    {
+      "key": "itemId",
+      "value": "1"
+    },
+    {
+      "key": "reservePrice",
+      "value": "150.00"
+    },
+    {
+      "key": "bidAmount",
+      "value": "175.00"
+    },
+    {
+      "key": "cardNumber",
+      "value": "4111111111111111"
+    },
+    {
+      "key": "nameOnCard",
+      "value": "John Doe"
+    },
+    {
+      "key": "expiry",
+      "value": "12/28"
+    },
+    {
+      "key": "cvv",
+      "value": "123"
+    }
+  ],
+  "item": [
+    {
+      "name": "Main End-to-End Flow",
+      "item": [
+        {
+          "name": "1 - Create Buyer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/signup",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "signup"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{buyerUsername}}\",\n  \"password\": \"{{buyerPassword}}\",\n  \"firstName\": \"John\",\n  \"lastName\": \"Doe\",\n  \"email\": \"john@email.com\",\n  \"role\": \"BUYER\",\n  \"shippingAddress\": {\n    \"streetNumber\": \"10\",\n    \"streetName\": \"King St\",\n    \"city\": \"Toronto\",\n    \"country\": \"Canada\",\n    \"postalCode\": \"M1M1M1\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is success\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                  "});",
+                  "",
+                  "let data = {};",
+                  "try { data = pm.response.json(); } catch (e) {}",
+                  "",
+                  "const userId = data.userId || data.id || data.user_id;",
+                  "if (userId) {",
+                  "    if (pm.info.requestName.toLowerCase().includes(\"buyer\")) {",
+                  "        pm.collectionVariables.set(\"buyerUserId\", String(userId));",
+                  "    } else {",
+                  "        pm.collectionVariables.set(\"sellerUserId\", String(userId));",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2 - Login Buyer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{buyerUsername}}\",\n  \"password\": \"{{buyerPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Login succeeded\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                  "});",
+                  "",
+                  "let data = {};",
+                  "try { data = pm.response.json(); } catch (e) {}",
+                  "",
+                  "const token = data.token || data.jwt || data.accessToken || data.access_token;",
+                  "const userId = data.userId || data.id || data.user_id;",
+                  "",
+                  "pm.test(\"Token returned\", function () {",
+                  "    pm.expect(token, \"Missing token in response\").to.exist;",
+                  "});",
+                  "",
+                  "if (pm.info.requestName.toLowerCase().includes(\"buyer\")) {",
+                  "    if (token) pm.collectionVariables.set(\"buyerToken\", String(token));",
+                  "    if (userId) pm.collectionVariables.set(\"buyerUserId\", String(userId));",
+                  "} else {",
+                  "    if (token) pm.collectionVariables.set(\"sellerToken\", String(token));",
+                  "    if (userId) pm.collectionVariables.set(\"sellerUserId\", String(userId));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3 - Create Seller",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/signup",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "signup"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{sellerUsername}}\",\n  \"password\": \"{{sellerPassword}}\",\n  \"firstName\": \"Peyton\",\n  \"lastName\": \"Doe\",\n  \"email\": \"pey@email.com\",\n  \"role\": \"SELLER\",\n  \"shippingAddress\": {\n    \"streetNumber\": \"3090\",\n    \"streetName\": \"King St\",\n    \"city\": \"Toronto\",\n    \"country\": \"Canada\",\n    \"postalCode\": \"M1M1M1\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is success\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                  "});",
+                  "",
+                  "let data = {};",
+                  "try { data = pm.response.json(); } catch (e) {}",
+                  "",
+                  "const userId = data.userId || data.id || data.user_id;",
+                  "if (userId) {",
+                  "    if (pm.info.requestName.toLowerCase().includes(\"buyer\")) {",
+                  "        pm.collectionVariables.set(\"buyerUserId\", String(userId));",
+                  "    } else {",
+                  "        pm.collectionVariables.set(\"sellerUserId\", String(userId));",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4 - Login Seller",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{sellerUsername}}\",\n  \"password\": \"{{sellerPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Login succeeded\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                  "});",
+                  "",
+                  "let data = {};",
+                  "try { data = pm.response.json(); } catch (e) {}",
+                  "",
+                  "const token = data.token || data.jwt || data.accessToken || data.access_token;",
+                  "const userId = data.userId || data.id || data.user_id;",
+                  "",
+                  "pm.test(\"Token returned\", function () {",
+                  "    pm.expect(token, \"Missing token in response\").to.exist;",
+                  "});",
+                  "",
+                  "if (pm.info.requestName.toLowerCase().includes(\"buyer\")) {",
+                  "    if (token) pm.collectionVariables.set(\"buyerToken\", String(token));",
+                  "    if (userId) pm.collectionVariables.set(\"buyerUserId\", String(userId));",
+                  "} else {",
+                  "    if (token) pm.collectionVariables.set(\"sellerToken\", String(token));",
+                  "    if (userId) pm.collectionVariables.set(\"sellerUserId\", String(userId));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5 - Create Auction",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{sellerToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auctions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auctions"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"itemId\": \"{{itemId}}\",\n  \"sellerId\": \"{{sellerUserId}}\",\n  \"durationHours\": 24,\n  \"reservePrice\": {{reservePrice}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Auction created\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                  "});",
+                  "",
+                  "let data = {};",
+                  "try { data = pm.response.json(); } catch (e) {}",
+                  "",
+                  "const auctionId = data.auctionId || data.id || data.auction_id;",
+                  "pm.test(\"Auction ID returned\", function () {",
+                  "    pm.expect(auctionId, \"Missing auctionId in response\").to.exist;",
+                  "});",
+                  "if (auctionId) pm.collectionVariables.set(\"auctionId\", String(auctionId));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "6 - Place Bid",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{buyerToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auctions/{{auctionId}}/bids",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auctions",
+                "{{auctionId}}",
+                "bids"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bidderId\": \"{{buyerUserId}}\",\n  \"bidAmount\": {{bidAmount}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Bid placed\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "7 - Close Auction",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{sellerToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auctions/{{auctionId}}/close",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auctions",
+                "{{auctionId}}",
+                "close"
+              ]
+            },
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Auction closed\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 202]);",
+                  "});",
+                  "",
+                  "let data = {};",
+                  "try { data = pm.response.json(); } catch (e) {}",
+                  "",
+                  "const status = data.status || data.auctionStatus;",
+                  "const winnerId = data.winnerId || data.winnerUserId || (data.winner && (data.winner.userId || data.winner.id));",
+                  "",
+                  "if (status) {",
+                  "    pm.test(\"Auction status is CLOSED\", function () {",
+                  "        pm.expect(String(status).toUpperCase()).to.eql(\"CLOSED\");",
+                  "    });",
+                  "}",
+                  "if (winnerId) {",
+                  "    pm.test(\"Winner is the buyer\", function () {",
+                  "        pm.expect(String(winnerId)).to.eql(pm.collectionVariables.get(\"buyerUserId\"));",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "8 - Process Payment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{buyerToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/payments/process",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "payments",
+                "process"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"auctionId\": \"{{auctionId}}\",\n  \"cardNumber\": \"{{cardNumber}}\",\n  \"nameOnCard\": \"{{nameOnCard}}\",\n  \"expiry\": \"{{expiry}}\",\n  \"cvv\": \"{{cvv}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Payment processed\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                  "});",
+                  "",
+                  "let data = {};",
+                  "try { data = pm.response.json(); } catch (e) {}",
+                  "",
+                  "pm.test(\"Response contains order info\", function () {",
+                  "    pm.expect(data.orderId || data.order_id).to.exist;",
+                  "});",
+                  "",
+                  "pm.test(\"Response contains totals\", function () {",
+                  "    pm.expect(data.itemPrice ?? data.item_price).to.exist;",
+                  "    pm.expect(data.shippingCost ?? data.shipping_cost).to.exist;",
+                  "    pm.expect(data.total).to.exist;",
+                  "});",
+                  "",
+                  "pm.test(\"Response contains shipping address\", function () {",
+                  "    pm.expect(data.shippingAddress || data.address).to.exist;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Robustness Tests",
+      "item": [
+        {
+          "name": "Invalid Token -> 401",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer definitely-invalid-token"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/payments/process",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "payments",
+                "process"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"auctionId\": \"{{auctionId}}\",\n  \"cardNumber\": \"{{cardNumber}}\",\n  \"nameOnCard\": \"{{nameOnCard}}\",\n  \"expiry\": \"{{expiry}}\",\n  \"cvv\": \"{{cvv}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 401 Unauthorized\", function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Wrong Role (Seller pays) -> 403",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{sellerToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/payments/process",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "payments",
+                "process"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"auctionId\": \"{{auctionId}}\",\n  \"cardNumber\": \"{{cardNumber}}\",\n  \"nameOnCard\": \"{{nameOnCard}}\",\n  \"expiry\": \"{{expiry}}\",\n  \"cvv\": \"{{cvv}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 403 Forbidden\", function () {",
+                  "    pm.response.to.have.status(403);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Invalid Card Number -> 400",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{buyerToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/payments/process",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "payments",
+                "process"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"auctionId\": \"{{auctionId}}\",\n  \"cardNumber\": \"123\",\n  \"nameOnCard\": \"{{nameOnCard}}\",\n  \"expiry\": \"{{expiry}}\",\n  \"cvv\": \"{{cvv}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 400 Bad Request\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Invalid CVV -> 400",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{buyerToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/payments/process",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "payments",
+                "process"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"auctionId\": \"{{auctionId}}\",\n  \"cardNumber\": \"{{cardNumber}}\",\n  \"nameOnCard\": \"{{nameOnCard}}\",\n  \"expiry\": \"{{expiry}}\",\n  \"cvv\": \"1\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 400 Bad Request\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Invalid Expiry -> 400",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{buyerToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/payments/process",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "payments",
+                "process"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"auctionId\": \"{{auctionId}}\",\n  \"cardNumber\": \"{{cardNumber}}\",\n  \"nameOnCard\": \"{{nameOnCard}}\",\n  \"expiry\": \"99/99\",\n  \"cvv\": \"{{cvv}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 400 Bad Request\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Missing Field -> 400",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{buyerToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/payments/process",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "payments",
+                "process"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"auctionId\": \"{{auctionId}}\",\n  \"cardNumber\": \"{{cardNumber}}\",\n  \"nameOnCard\": \"{{nameOnCard}}\",\n  \"expiry\": \"{{expiry}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 400 Bad Request\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

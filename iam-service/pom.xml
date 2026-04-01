@@ -45,12 +45,15 @@
       <artifactId>spring-boot-starter-security</artifactId>
     </dependency>
 
-    <!-- H2 database (fast for D2 demos/tests) -->
     <dependency>
-      <groupId>com.h2database</groupId>
-      <artifactId>h2</artifactId>
-      <scope>runtime</scope>
-    </dependency>
+  <groupId>org.xerial</groupId>
+  <artifactId>sqlite-jdbc</artifactId>
+</dependency>
+
+<dependency>
+  <groupId>org.hibernate.orm</groupId>
+  <artifactId>hibernate-community-dialects</artifactId>
+</dependency>
 
     <!-- JWT (JJWT) -->
     <dependency>
