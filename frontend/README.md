@@ -35,6 +35,7 @@ The browser talks to the React dev server, and Vite forwards backend requests to
 ```bash
 npm install
 npm run dev
+npm install @stomp/stompjs sockjs-client
 ```
 
 ### Frontend dependencies added for auction real-time updates
